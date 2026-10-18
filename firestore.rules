@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // ---------------------------------------------------------------------------
-// motorqu — Firestore Security Rules
+// motorqu â€” Firestore Security Rules
 //
 // Model data:
 //   users/{uid}                                 profil pengguna
@@ -178,8 +178,19 @@ service cloud.firestore {
 
     // ------------------------- Motorcycles -------------------------
     // Setiap dokumen motor menyimpan `memberUids` (denormalisasi) agar Rules
-    // BISA dihitung tanpa `get()` — `get()` dilarang dalam query/list.
+    // BISA dihitung tanpa `get()` â€” `get()` dilarang dalam query/list.
     match /motorcycles/{motorcycleId} {
+      // Baca memberUids grup langsung dari dokumen grup. get() BOLEH di sini
+      // â€” aturan ini dievaluasi per-dokumen, bukan dalam query/list.
+      function inGroupMemberUids(groupId) {
+        return signedIn()
+          && groupId is string
+          && groupId != ""
+          && exists(/databases/$(database)/documents/groups/$(groupId))
+          && request.auth.uid
+              in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUids;
+      }
+
       function hasMotoAccess() {
         return signedIn()
           && resource.data.memberUids is list
@@ -191,19 +202,21 @@ service cloud.firestore {
                     && request.auth.uid in request.resource.data.memberUids
                     && request.resource.data.createdBy == request.auth.uid
                     && (
-                         request.resource.data.groupId == 'private_' + request.auth.uid
+                         request.resource.data.groupId == "private_" + request.auth.uid
                            ? request.resource.data.memberUids.length == 1
                            : request.resource.data.memberUids.length >= 1
-                       );
+                     );
 
       allow read: if hasMotoAccess();
 
-      allow update: if hasMotoAccess()
-                    && request.resource.data.memberUids == resource.data.memberUids;
+      // Update: anggota (di memberUids LAMA ATAU sudah tercatat di grup) boleh
+      // mengubah field apa pun kecuali groupId. Ini mengizinkan sinkronisasi
+      // memberUids saat join/leave tanpa membuka celah: yang tidak di grup
+      // tetap tidak bisa update, dan motor tidak bisa dipindahkan ke grup lain.
+      allow update: if (hasMotoAccess() || inGroupMemberUids(resource.data.groupId))
+                    && request.resource.data.groupId == resource.data.groupId;
 
       allow delete: if hasMotoAccess();
-
-      // ------------------------- Riwayat ganti oli -------------------------
       match /records/{recordId} {
         allow read: if hasMotoAccess();
         allow create: if hasMotoAccess()
