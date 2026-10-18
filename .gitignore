@@ -1,0 +1,19 @@
+# Build artifacts
+build/
+*.apk
+*.app
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+*.log
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Local Firebase config
+firebase-debug.log
+firebase-debug.*.log

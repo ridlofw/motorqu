@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "655067804870",
+    "project_id": "motorqu-e81dd",
+    "storage_bucket": "motorqu-e81dd.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:655067804870:android:f62ac32ffc5cf41b3bd3c7",
+        "android_client_info": {
+          "package_name": "com.motorqu.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "655067804870-jd35qg4f5du5ikv74orjknho1umacifp.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.motorqu.app",
+            "certificate_hash": "f26456757c3fe56246ca6e137af1b12482a5ea03"
+          }
+        },
+        {
+          "client_id": "655067804870-5kuje8q14o84gvfijjeq52otm142gsqd.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC5TpfAs832Uc5_HySHbCU-2FchKs9YJSI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "655067804870-5kuje8q14o84gvfijjeq52otm142gsqd.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

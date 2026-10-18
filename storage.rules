@@ -1,0 +1,40 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function inGroup(groupId) {
+      return signedIn()
+        && groupId != null
+        && groupId != ''
+        && firestore.get(/databases/(default)/documents/groups/$(groupId)).exists
+        && request.auth.uid in firestore.get(/databases/(default)/documents/groups/$(groupId)).data.memberUids;
+    }
+
+    // Foto motor & bukti servis: boleh dibaca siapa pun yang login,
+    // ditulis hanya oleh member grup pemilik motor.
+    // Path yang dipakai app: motorcycles/{motoId}/{fileName}
+    match /motorcycles/{motoId}/{fileName} {
+      allow read: if signedIn();
+      allow write: if request.auth.uid != null
+                   && firestore.exists(/databases/(default)/documents/motorcycles/$(motoId))
+                   && inGroup(string(firestore.get(/databases/(default)/documents/motorcycles/$(motoId)).data.groupId))
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    // APK rilis utk auto-update: publik hanya-baca.
+    match /releases/{fileName} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

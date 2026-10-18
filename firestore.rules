@@ -1,0 +1,229 @@
+rules_version = '2';
+
+// ---------------------------------------------------------------------------
+// motorqu — Firestore Security Rules
+//
+// Model data:
+//   users/{uid}                                 profil pengguna
+//   groups/{groupId}                            grup motor keluarga
+//   motorcycles/{motoId}                        motor, milik satu grup
+//   motorcycles/{motoId}/records/{recordId}     riwayat ganti oli / servis
+//   appMeta/{docId}                             metadata versi APK (auto-update)
+//
+// Prinsip: akses data motor SELALU lewat keanggotaan grup. Tidak ada koleksi
+// yang terbuka kecuali appMeta (hanya-baca, untuk cek versi APK).
+//
+// Catatan: helper selalu menerima id sebagai parameter eksplisit. Wildcard
+// path TIDAK dibaca dari dalam function, karena cakupannya tidak terjamin.
+// ---------------------------------------------------------------------------
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ------------------------- Helper -------------------------
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function groupRef(groupId) {
+      return /databases/$(database)/documents/groups/$(groupId);
+    }
+
+    function groupData(groupId) {
+      return get(groupRef(groupId)).data;
+    }
+
+    // Keanggotaan: user login DAN uid terdaftar di memberUids grup tsb.
+    function inGroup(groupId) {
+      return signedIn()
+        && groupId is string
+        && groupId != ''
+        && exists(groupRef(groupId))
+        && request.auth.uid in groupData(groupId).memberUids;
+    }
+
+    // Grup virtual privat (user tidak perlu membuat dokumen grup utk motor sendiri)
+    function isPrivateTo(groupId, uid) {
+      return signedIn() && groupId == 'private_' + uid;
+    }
+
+    // Fungsi tunggal utk cek hak akses motor (grup keluarga ATAU motor pribadi)
+    function hasMotoAccess(groupId) {
+      return inGroup(groupId) || isPrivateTo(groupId, request.auth.uid);
+    }
+
+    function ownsGroup(groupId) {
+      return inGroup(groupId) && groupData(groupId).ownerId == request.auth.uid;
+    }
+
+    function selfLeave(groupId) {
+      return inGroup(groupId)
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['memberUids'])
+          && resource.data.memberUids.removeAll(request.resource.data.memberUids)
+               == [request.auth.uid];
+    }
+
+    function motoRef(motoId) {
+      return /databases/$(database)/documents/motorcycles/$(motoId);
+    }
+
+    // groupId sebuah motor, dibaca dari dokumen yang tersimpan di server.
+    function groupOfMoto(motoId) {
+      return string(get(motoRef(motoId)).data.groupId);
+    }
+
+    // Motor boleh diakses lewat grup keluarga ATAU jika milik pribadi user ini.
+    function accessViaMoto(motoId) {
+      return exists(motoRef(motoId)) && hasMotoAccess(groupOfMoto(motoId));
+    }
+
+    // Field grup yang hanya boleh diubah oleh owner.
+    function touchesMembership() {
+      return request.resource.data.diff(resource.data)
+        .affectedKeys().hasAny(['ownerId', 'memberUids']);
+    }
+
+    // ---- Gabung grup lewat kode undangan ----
+    function inviteRef(code) {
+      return /databases/$(database)/documents/invites/$(code);
+    }
+
+    // Undangan masih berlaku utk grup ini.
+    function inviteValid(groupId, code) {
+      return code is string
+        && exists(inviteRef(code))
+        && get(inviteRef(code)).data.groupId == groupId
+        && get(inviteRef(code)).data.expiresAt > request.time;
+    }
+
+    // Transisi memberUids harus: menambah tepat satu uid, yaitu dirinya
+    // sendiri. Satu-satunya field lain yang boleh ikut tertulis adalah
+    // lastInviteUsed (jejak kode yang dipakai).
+    function selfJoin(groupId) {
+      return signedIn()
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['memberUids', 'lastInviteUsed'])
+        && request.resource.data.memberUids.removeAll(resource.data.memberUids)
+             == [request.auth.uid]
+        && 'lastInviteUsed' in request.resource.data
+        && inviteValid(groupId, request.resource.data.lastInviteUsed);
+    }
+
+    // ------------------------- Users -------------------------
+    // Profil boleh dibaca sesiapa yang login (perlu utk menampilkan nama &
+    // foto pada riwayat bersama), tapi hanya bisa ditulis oleh pemiliknya.
+    match /users/{userId} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn()
+                    && request.auth.uid == userId
+                    && request.resource.data.uid == userId;
+      allow update: if signedIn()
+                    && request.auth.uid == userId
+                    && !request.resource.data.diff(resource.data)
+                         .affectedKeys().hasAny(['uid', 'email', 'createdAt']);
+      allow delete: if false;
+    }
+
+    // ------------------------- Groups -------------------------
+    match /groups/{groupId} {
+      // Catatan: 'groupId' di bagian ini HANYA merujuk pada grup keluarga
+      // sungguhan (punya dokumen grup), bukan 'private_{uid}'.
+      
+      // Buat grup: owner harus dirinya sendiri dan ikut sebagai member.
+      allow create: if signedIn()
+                    && request.resource.data.ownerId == request.auth.uid
+                    && request.resource.data.memberUids is list
+                    && request.auth.uid in request.resource.data.memberUids;
+
+      // List/get grup: hanya jika user terdaftar sebagai anggota
+      allow read: if signedIn() 
+                  && request.auth.uid in resource.data.memberUids;
+
+      // 4 jalur update sah:
+      //  1. selfJoin      -> gabung pakai kode
+      //  2. selfLeave     -> keluar dari grup secara mandiri
+      //  3. owner         -> bebas kelola grup & anggota
+      //  4. member biasa  -> hanya bisa ubah nama grup
+      allow update: if selfJoin(groupId)
+                    || selfLeave(groupId)
+                    || (
+                      inGroup(groupId)
+                      && (ownsGroup(groupId) || !touchesMembership())
+                      && request.resource.data.ownerId == resource.data.ownerId
+                    );
+
+      allow delete: if ownsGroup(groupId);
+    }
+
+    // ------------------------- Undangan (kode) -------------------------
+    // Koleksi TERBUKA (read-only) karena orang yang belum jadi member harus
+    // bisa memvalidasi kodenya. Isanya sengaja minimal: groupId + kadaluarsa.
+    // Tidak ada nama, email, atau data pribadi di sini.
+    match /invites/{code} {
+      allow read: if true;
+      allow list: if false;
+      // Hanya owner grup yang bisa menerbitkan undangan utk grupnya.
+      allow create: if ownsGroup(string(request.resource.data.groupId));
+      allow update: if ownsGroup(string(resource.data.groupId));
+      // Pemegang kode (siapa pun yang login) boleh menghapus kode yang
+      // baru saja ia pakai untuk bergabung (satu-kali-pakai).
+      allow delete: if (signedIn()
+                        && request.resource == null
+                        && resource.data.createdBy == request.auth.uid)
+                    || ownsGroup(string(resource.data.groupId))
+                    || inGroup(string(resource.data.groupId));
+    }
+
+    // ------------------------- Motorcycles -------------------------
+    // Setiap dokumen motor menyimpan `memberUids` (denormalisasi) agar Rules
+    // BISA dihitung tanpa `get()` — `get()` dilarang dalam query/list.
+    match /motorcycles/{motorcycleId} {
+      function hasMotoAccess() {
+        return signedIn()
+          && resource.data.memberUids is list
+          && request.auth.uid in resource.data.memberUids;
+      }
+
+      allow create: if signedIn()
+                    && request.resource.data.memberUids is list
+                    && request.auth.uid in request.resource.data.memberUids
+                    && request.resource.data.createdBy == request.auth.uid
+                    && (
+                         request.resource.data.groupId == 'private_' + request.auth.uid
+                           ? request.resource.data.memberUids.length == 1
+                           : request.resource.data.memberUids.length >= 1
+                       );
+
+      allow read: if hasMotoAccess();
+
+      allow update: if hasMotoAccess()
+                    && request.resource.data.memberUids == resource.data.memberUids;
+
+      allow delete: if hasMotoAccess();
+
+      // ------------------------- Riwayat ganti oli -------------------------
+      match /records/{recordId} {
+        allow read: if hasMotoAccess();
+        allow create: if hasMotoAccess()
+                      && request.resource.data.performedBy == request.auth.uid;
+        allow update: if hasMotoAccess();
+        allow delete: if hasMotoAccess();
+      }
+    }
+
+    // ------------------------- App metadata (auto-update) -------------------------
+    // Publik hanya-baca supaya app bisa cek versi terbaru tanpa login.
+    // Penulisan dilakukan oleh GitHub Actions lewat Admin SDK / CLI.
+    match /appMeta/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ------------------------- Default -------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

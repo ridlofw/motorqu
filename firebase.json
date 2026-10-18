@@ -1,0 +1,17 @@
+{
+  "hosting": {
+    "public": "hosting",
+    "ignore": [
+      "firebase.json",
+      "*.md",
+      "firebase-debug.log",
+      "firebase-debug.*.log"
+    ],
+    "rewrites": [
+      {
+        "source": "/appMeta/latest",
+        "destination": "/appMeta/latest.json"
+      }
+    ]
+  }
+}
