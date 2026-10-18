@@ -6,23 +6,32 @@ import 'package:open_filex/open_filex.dart';
 import 'dart:convert';
 
 class UpdateService {
-  static const String _metaUrl =
-      'https://motorqu-e81dd.web.app/appMeta/latest.json';
+  /// Dicoba berurutan. Prioritas: aset GitHub Release (selalu sepasang dengan APK
+  /// terbaru), lalu Firebase Hosting sebagai cadangan.
+  static const List<String> _metaUrls = [
+    'https://github.com/ridlofw/motorqu/releases/latest/download/latest.json',
+    'https://motorqu-e81dd.web.app/appMeta/latest.json',
+  ];
   static const String _apkUrl =
       'https://github.com/ridlofw/motorqu/releases/latest/download/app-release.apk';
 
-  /// Ambil metadata versi terbaru dari Firebase Hosting.
+  /// Ambil metadata versi terbaru (GitHub Release / Firebase Hosting).
   /// Mengembalikan Map JSON atau null jika gagal/offline.
   Future<Map<String, dynamic>?> checkForUpdate() async {
-    try {
-      final resp = await http.get(Uri.parse(_metaUrl)).timeout(
-            const Duration(seconds: 10),
-          );
-      if (resp.statusCode == 200) {
-        return Map<String, dynamic>.from(jsonDecode(resp.body) as Map);
+    for (final url in _metaUrls) {
+      try {
+        final resp = await http.get(Uri.parse(url)).timeout(
+              const Duration(seconds: 10),
+            );
+        if (resp.statusCode == 200) {
+          final decoded = jsonDecode(resp.body);
+          if (decoded is Map) {
+            return Map<String, dynamic>.from(decoded);
+          }
+        }
+      } catch (_) {
+        // Coba sumber berikutnya.
       }
-    } catch (_) {
-      // Offline / hosting belum aktif -> anggap tidak ada update.
     }
     return null;
   }

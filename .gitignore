@@ -7,6 +7,8 @@ build/
 .pub-cache/
 .pub/
 *.log
+.dart_tool/
+.firebase/
 
 # IDE / OS
 .idea/
@@ -17,3 +19,8 @@ Thumbs.db
 # Local Firebase config
 firebase-debug.log
 firebase-debug.*.log
+
+# Signing keys - never commit (repo is public). Use GitHub secret KEYSTORE_ZIP_B64.
+android/key.properties
+android/keystore/
+RELEASE-SECRETS.txt

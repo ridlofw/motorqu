@@ -7,14 +7,32 @@ on:
       - 'lib/**'
       - 'android/**'
       - 'pubspec.yaml'
-      - 'hosting/**'
   workflow_dispatch: {}
+
+permissions:
+  contents: write
 
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Restore signing keystore
+        if: ${{ secrets.KEYSTORE_ZIP_B64 != '' }}
+        run: |
+          printf '%s' "${{ secrets.KEYSTORE_ZIP_B64 }}" | base64 -d > /tmp/keys.zip
+          unzip -o /tmp/keys.zip -d android
+          ls -l android/keystore android/key.properties
+
+      - name: Require release keystore
+        env:
+          HAS_KEYSTORE: ${{ secrets.KEYSTORE_ZIP_B64 != '' }}
+        run: |
+          if [ "$HAS_KEYSTORE" != "true" ]; then
+            echo "::error::Secret KEYSTORE_ZIP_B64 belum diisi. Batal, agar APK bertanda tangan debug tidak ikut ter-publish."
+            exit 1
+          fi
 
       - uses: actions/setup-java@v4
         with:
@@ -30,26 +48,50 @@ jobs:
         id: ver
         run: |
           V=$(grep '^version:' pubspec.yaml | awk '{print $2}')
-          echo "name=${V%%+*}"  >> "$GITHUB_OUTPUT"
-          echo "code=${V##*+}"  >> "$GITHUB_OUTPUT"
+          echo "name=${V%%+*}" >> "$GITHUB_OUTPUT"
+          echo "code=${V##*+}" >> "$GITHUB_OUTPUT"
 
       - run: flutter pub get
-      - run: flutter build apk --release
 
-      - name: Stage hosting folder
+      - name: Build APK
+        id: build_apk
+        run: flutter build apk --release
+
+      - name: Write update metadata
+        if: steps.build_apk.outcome == 'success'
         run: |
-          mkdir -p hosting/appMeta
-          cat > hosting/appMeta/latest.json <<EOF
+          mkdir -p release_assets hosting/appMeta
+          cat > release_assets/latest.json <<EOF
           {
             "versionName": "${{ steps.ver.outputs.name }}",
             "versionCode": "${{ steps.ver.outputs.code }}",
             "apkUrl": "https://github.com/ridlofw/motorqu/releases/latest/download/app-release.apk",
-            "notes": "Build otomatis $GITHUB_SHA",
+            "notes": "Build otomatis ${GITHUB_SHA::7}",
             "updatedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           }
           EOF
+          cp release_assets/latest.json hosting/appMeta/latest.json
+          cat release_assets/latest.json
 
-      - name: Deploy metadata to Firebase Hosting
+      - name: Publish GitHub Release (APK + metadata)
+        if: steps.build_apk.outcome == 'success'
+        id: release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: MotorQu v${{ steps.ver.outputs.name }}
+          tag_name: v${{ steps.ver.outputs.name }}-${{ steps.ver.outputs.code }}
+          files: |
+            build/app/outputs/flutter-apk/app-release.apk
+            release_assets/latest.json
+          overwrite_files: true
+          make_latest: true
+          body: |
+            MotorQu v${{ steps.ver.outputs.name }} (versionCode ${{ steps.ver.outputs.code }})
+            Unduh app-release.apk lalu install. Data tidak hilang.
+
+      - name: Mirror metadata to Firebase Hosting
+        if: steps.release.outcome == 'success' && secrets.FIREBASE_SERVICE_ACCOUNT != ''
+        continue-on-error: true
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
@@ -57,14 +99,3 @@ jobs:
           channelId: live
           projectId: motorqu-e81dd
           target: motorqu-e81dd
-
-      - name: Upload APK to GitHub Releases
-        uses: softprops/action-gh-release@v2
-        with:
-          name: MotorQu v${{ steps.ver.outputs.name }}
-          tag_name: v${{ steps.ver.outputs.name }}
-          files: build/app/outputs/flutter-apk/app-release.apk
-          make_latest: true
-          body: |
-            MotorQu v${{ steps.ver.outputs.name }} (versionCode ${{ steps.ver.outputs.code }})
-            Download APK → install → data tidak hilang.

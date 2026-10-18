@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "655067804870-16nkf59nsc0kmnme3rneh8cvqclo9mi0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.motorqu.app",
+            "certificate_hash": "018bb74a53cf64064be65fde8b5432c90d1a0ca5"
+          }
+        },
+        {
           "client_id": "655067804870-jd35qg4f5du5ikv74orjknho1umacifp.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
