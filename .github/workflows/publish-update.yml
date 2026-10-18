@@ -15,19 +15,21 @@ permissions:
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
+    # `secrets` is not allowed in step-level `if:`, so expose them as env first.
+    env:
+      HAS_KEYSTORE: ${{ secrets.KEYSTORE_ZIP_B64 != '' }}
+      HAS_FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT != '' }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Restore signing keystore
-        if: ${{ secrets.KEYSTORE_ZIP_B64 != '' }}
+        if: env.HAS_KEYSTORE == 'true'
         run: |
           printf '%s' "${{ secrets.KEYSTORE_ZIP_B64 }}" | base64 -d > /tmp/keys.zip
           unzip -o /tmp/keys.zip -d android
           ls -l android/keystore android/key.properties
 
       - name: Require release keystore
-        env:
-          HAS_KEYSTORE: ${{ secrets.KEYSTORE_ZIP_B64 != '' }}
         run: |
           if [ "$HAS_KEYSTORE" != "true" ]; then
             echo "::error::Secret KEYSTORE_ZIP_B64 belum diisi. Batal, agar APK bertanda tangan debug tidak ikut ter-publish."
@@ -90,7 +92,7 @@ jobs:
             Unduh app-release.apk lalu install. Data tidak hilang.
 
       - name: Mirror metadata to Firebase Hosting
-        if: steps.release.outcome == 'success' && secrets.FIREBASE_SERVICE_ACCOUNT != ''
+        if: steps.release.outcome == 'success' && env.HAS_FIREBASE_SA == 'true'
         continue-on-error: true
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
