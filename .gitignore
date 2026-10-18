@@ -24,3 +24,5 @@ firebase-debug.*.log
 android/key.properties
 android/keystore/
 RELEASE-SECRETS.txt
+# Never commit Firebase API keys (public leak).
+lib/firebase_options.dart
