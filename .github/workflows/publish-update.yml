@@ -24,15 +24,24 @@ jobs:
 
       - name: Restore signing keystore
         if: env.HAS_KEYSTORE == 'true'
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_ZIP_B64 }}
         run: |
-          printf '%s' "${{ secrets.KEYSTORE_ZIP_B64 }}" | base64 -d > /tmp/keys.zip
-          unzip -o /tmp/keys.zip -d android
-          ls -l android/keystore android/key.properties
+          mkdir -p android/keystore /tmp/keys_extracted
+          echo "$KEYSTORE_B64" | tr -d '\r\n ' | base64 -d > /tmp/keys.zip
+          unzip -o /tmp/keys.zip -d /tmp/keys_extracted
+          find /tmp/keys_extracted -name "*motorqu.jks*" -exec mv -f {} android/keystore/motorqu.jks \;
+          find /tmp/keys_extracted -name "*key.properties*" -exec mv -f {} android/key.properties \;
+          if [ ! -f "android/key.properties" ]; then
+            printf "storePassword=motorqu123\nkeyPassword=motorqu123\nkeyAlias=motorqu\nstoreFile=keystore/motorqu.jks\n" > android/key.properties
+          fi
+          ls -la android/key.properties
+          ls -la android/keystore/motorqu.jks
 
       - name: Require release keystore
         run: |
-          if [ "$HAS_KEYSTORE" != "true" ]; then
-            echo "::error::Secret KEYSTORE_ZIP_B64 belum diisi. Batal, agar APK bertanda tangan debug tidak ikut ter-publish."
+          if [ "$HAS_KEYSTORE" != "true" ] || [ ! -f "android/keystore/motorqu.jks" ]; then
+            echo "::error::Release keystore tidak ditemukan. Batal, agar APK bertanda tangan debug tidak ikut ter-publish."
             exit 1
           fi
 
