@@ -3,11 +3,9 @@ name: Build APK & Publish Update
 on:
   push:
     branches: [main]
-    paths:
-      - 'lib/**'
-      - 'android/**'
-      - 'pubspec.yaml'
-      - '.github/workflows/**'
+    paths-ignore:
+      - 'README.md'
+      - '.gitignore'
   workflow_dispatch: {}
 
 permissions:
