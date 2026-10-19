@@ -22,25 +22,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Restore signing keystore
-        env:
-          KEYSTORE_B64: ${{ secrets.KEYSTORE_ZIP_B64 }}
-        run: |
-          if [ -z "$KEYSTORE_B64" ]; then
-            echo "::error title=Secret Belum Diisi::Secret KEYSTORE_ZIP_B64 belum ada di GitHub Repository Secrets. Buka Settings -> Secrets and variables -> Actions -> New repository secret, lalu masukkan Name: KEYSTORE_ZIP_B64 dan Value: base64 dari release-keys.zip."
-            exit 1
-          fi
-          mkdir -p android/keystore /tmp/keys_extracted
-          echo "$KEYSTORE_B64" | tr -d '\r\n ' | base64 -d > /tmp/keys.zip
-          unzip -o /tmp/keys.zip -d /tmp/keys_extracted
-          find /tmp/keys_extracted -name "*motorqu.jks*" -exec mv -f {} android/keystore/motorqu.jks \;
-          find /tmp/keys_extracted -name "*key.properties*" -exec mv -f {} android/key.properties \;
-          if [ ! -f "android/key.properties" ]; then
-            printf "storePassword=motorqu123\nkeyPassword=motorqu123\nkeyAlias=motorqu\nstoreFile=keystore/motorqu.jks\n" > android/key.properties
-          fi
-          ls -la android/key.properties
-          ls -la android/keystore/motorqu.jks
-
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

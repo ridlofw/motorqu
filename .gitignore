@@ -20,9 +20,5 @@ Thumbs.db
 firebase-debug.log
 firebase-debug.*.log
 
-# Signing keys - never commit (repo is public). Use GitHub secret KEYSTORE_ZIP_B64.
-android/key.properties
-android/keystore/
-RELEASE-SECRETS.txt
 # Never commit Firebase API keys (public leak).
 lib/firebase_options.dart
