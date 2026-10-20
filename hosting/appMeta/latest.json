@@ -1,7 +1,7 @@
 {
-  "versionName": "1.0.4",
-  "versionCode": "5",
+  "versionName": "1.0.5",
+  "versionCode": "6",
   "apkUrl": "https://github.com/ridlofw/motorqu/releases/latest/download/app-release.apk",
-  "notes": "Pembaruan v1.0.4: Desain baru navigasi & profil, aksi langsung Buat/Masuk grup dari (+), perbaikan toggle pengingat ganti oli, dan perbaikan logo pas tanpa latar belakang",
-  "updatedAt": "2026-10-20T06:00:00Z"
+  "notes": "Pembaruan v1.0.5: Perbaikan tuntas pengunduhan APK update (auto-resume jika koneksi terputus, tanpa error permission MANAGE_EXTERNAL_STORAGE, dan progress bar real-time)",
+  "updatedAt": "2026-10-20T14:30:00Z"
 }

@@ -24,8 +24,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final UpdateService _update = UpdateService();
 
   bool _notifEnabled = true;
-  String _version = '1.0.4';
-  String _buildNumber = '5';
+  String _version = '1.0.5';
+  String _buildNumber = '6';
 
   @override
   void initState() {
@@ -91,12 +91,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     double progress = 0.0;
     String statusText = 'Menghubungkan...';
+    void Function(void Function())? dialogSetState;
 
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (dlgContext) => StatefulBuilder(
         builder: (context, setDlgState) {
+          dialogSetState = setDlgState;
           return PopScope(
             canPop: false,
             child: AlertDialog(
@@ -105,7 +107,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  LinearProgressIndicator(value: progress > 0 ? progress : null),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: progress > 0 ? progress : null,
+                      minHeight: 8,
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   Text(statusText, style: const TextStyle(fontSize: 13)),
                 ],
@@ -119,13 +127,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     String? errorMsg;
     try {
       errorMsg = await _update.downloadAndInstall(
-        onProgress: (received, total) {
-          if (total > 0) {
-            final p = received / total;
-            final recMb = (received / (1024 * 1024)).toStringAsFixed(1);
-            final totMb = (total / (1024 * 1024)).toStringAsFixed(1);
-            progress = p;
-            statusText = '$recMb MB / $totMb MB (${(p * 100).toInt()}%)';
+        targetVersionCode: meta['versionCode']?.toString(),
+        onProgress: (received, total, status) {
+          progress = total > 0 ? (received / total) : 0.0;
+          statusText = status;
+          if (dialogSetState != null) {
+            dialogSetState!(() {});
           }
         },
       );
