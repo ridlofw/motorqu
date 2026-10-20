@@ -77,12 +77,78 @@ class DatabaseService {
 
   // ----------------------------- GROUPS -----------------------------
 
-  /// Cari grup di mana user ini menjadi member
+  /// Cari grup di mana user ini menjadi member (kompatibilitas backward)
   Future<FamilyGroup?> getUserGroup(String uid) async {
     final snapshot =
         await _db.collection('groups').where('memberUids', arrayContains: uid).limit(1).get();
     if (snapshot.docs.isEmpty) return null;
     return FamilyGroup.fromMap(snapshot.docs.first.data(), snapshot.docs.first.id);
+  }
+
+  /// Stream seluruh grup yang diikuti oleh user (Multi-Grup)
+  Stream<List<FamilyGroup>> getUserGroups(String uid) {
+    return _db
+        .collection('groups')
+        .where('memberUids', arrayContains: uid)
+        .snapshots()
+        .map((s) => s.docs
+            .map((d) => FamilyGroup.fromMap(d.data(), d.id))
+            .toList());
+  }
+
+  /// Mengambil daftar semua grup yang diikuti oleh user
+  Future<List<FamilyGroup>> getUserGroupsList(String uid) async {
+    final snapshot = await _db
+        .collection('groups')
+        .where('memberUids', arrayContains: uid)
+        .get();
+    return snapshot.docs
+        .map((d) => FamilyGroup.fromMap(d.data(), d.id))
+        .toList();
+  }
+
+  /// Stream semua motor yang ada di dalam sebuah grup
+  Stream<List<Motorcycle>> getGroupMotorcycles(String groupId) {
+    return _db
+        .collection('motorcycles')
+        .where('groupId', isEqualTo: groupId)
+        .snapshots()
+        .map((s) => s.docs
+            .map((d) => Motorcycle.fromMap(d.data(), d.id))
+            .toList());
+  }
+
+  /// Mengambil daftar motor pribadi milik user (belum masuk grup mana pun)
+  Future<List<Motorcycle>> getUserPrivateMotorcycles(String uid) async {
+    final snapshot = await _db
+        .collection('motorcycles')
+        .where('groupId', isEqualTo: 'private_$uid')
+        .get();
+    return snapshot.docs
+        .map((d) => Motorcycle.fromMap(d.data(), d.id))
+        .toList();
+  }
+
+  /// Memasukkan motor pribadi ke dalam grup
+  Future<void> assignMotorcycleToGroup(String motoId, String groupId) async {
+    final g = await _db.collection('groups').doc(groupId).get();
+    if (!g.exists) throw Exception('Grup tidak ditemukan');
+    final members = List<String>.from(g.data()!['memberUids'] ?? [_uid!]);
+
+    await _db.collection('motorcycles').doc(motoId).update({
+      'groupId': groupId,
+      'isGroupMotor': true,
+      'memberUids': members,
+    });
+  }
+
+  /// Mengeluarkan motor dari grup kembali menjadi motor pribadi
+  Future<void> removeMotorcycleFromGroup(String motoId, String uid) async {
+    await _db.collection('motorcycles').doc(motoId).update({
+      'groupId': 'private_$uid',
+      'isGroupMotor': false,
+      'memberUids': [uid],
+    });
   }
 
   Future<String> createGroup(String groupName) async {
@@ -247,8 +313,23 @@ class DatabaseService {
     if (year != null) data['year'] = year;
     if (color != null) data['color'] = color;
     if (reminderIntervalKm != null) data['reminderIntervalKm'] = reminderIntervalKm;
-    if (groupId != null) data['groupId'] = groupId;
     if (isGroupMotor != null) data['isGroupMotor'] = isGroupMotor;
+
+    if (groupId != null) {
+      data['groupId'] = groupId;
+      final uid = _uid!;
+      if (groupId.startsWith('private_')) {
+        data['memberUids'] = [uid];
+        data['isGroupMotor'] = false;
+      } else {
+        final g = await _db.collection('groups').doc(groupId).get();
+        if (g.exists) {
+          data['memberUids'] = List<String>.from(g.data()!['memberUids'] ?? [uid]);
+          data['isGroupMotor'] = true;
+        }
+      }
+    }
+
     await _db.collection('motorcycles').doc(id).update(data);
   }
 

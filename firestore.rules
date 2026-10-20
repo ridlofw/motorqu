@@ -117,7 +117,7 @@ service cloud.firestore {
         }
 
         allow read, list, get: if canAccessMoto();
-        allow create: if canAccessMoto() && request.resource.data.performedBy == request.auth.uid;
+        allow create: if canAccessMoto();
         allow update, delete: if canAccessMoto();
       }
     }

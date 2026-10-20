@@ -27,7 +27,7 @@ class _AddOilScreenState extends State<AddOilScreen> {
   final TextEditingController _km = TextEditingController();
 
   DateTime _tanggal = DateTime.now();
-  Motorcycle? _selected;
+  String? _selectedMotorId;
   bool _saving = false;
 
   @override
@@ -46,8 +46,11 @@ class _AddOilScreenState extends State<AddOilScreen> {
     if (picked != null) setState(() => _tanggal = picked);
   }
 
-  Future<void> _save() async {
-    final moto = _selected;
+  Future<void> _save(List<Motorcycle> motos) async {
+    final moto = motos.cast<Motorcycle?>().firstWhere(
+          (m) => m?.id == _selectedMotorId,
+          orElse: () => null,
+        );
     if (moto == null) {
       _toast('Pilih motor dulu yaa');
       return;
@@ -65,7 +68,8 @@ class _AddOilScreenState extends State<AddOilScreen> {
         motorcycleId: moto.id,
         performedAt: Timestamp.fromDate(_tanggal),
         odometer: km,
-        performedBy: user?.displayName ?? uid,
+        performedBy: uid,
+        performedByName: user?.displayName ?? 'Pengguna',
         createdAt: Timestamp.now(),
       );
 
@@ -116,31 +120,50 @@ class _AddOilScreenState extends State<AddOilScreen> {
             return _emptyMotors();
           }
 
-          // pra-pilih motor kalau dipanggil dari notifikasi
-          if (_selected == null) {
+          // pra-pilih motor kalau dipanggil dari notifikasi atau default
+          if (_selectedMotorId == null || !motos.any((m) => m.id == _selectedMotorId)) {
             final wanted = widget.preselectMotorId;
-            for (final m in motos) {
-              if (m.id == wanted) _selected = m;
+            if (wanted != null && motos.any((m) => m.id == wanted)) {
+              _selectedMotorId = wanted;
+            } else {
+              _selectedMotorId = motos.first.id;
             }
-            _selected ??= motos.first;
           }
+
+          final selectedMotor = motos.firstWhere(
+            (m) => m.id == _selectedMotorId,
+            orElse: () => motos.first,
+          );
 
           return Form(
             key: _formKey,
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                const Text('Motor'),
+                const Text(
+                  'Motor *',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
                 const SizedBox(height: 8),
-                DropdownButtonFormField<Motorcycle>(
-                  initialValue: _selected,
+                DropdownButtonFormField<String>(
+                  value: _selectedMotorId,
                   items: motos.map((m) {
-                    return DropdownMenuItem<Motorcycle>(
-                      value: m,
-                      child: Text(m.name),
+                    final detail = m.brand.isNotEmpty || m.model.isNotEmpty
+                        ? ' (${m.brand} ${m.model})'
+                        : '';
+                    return DropdownMenuItem<String>(
+                      value: m.id,
+                      child: Text(
+                        '${m.name}$detail',
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     );
                   }).toList(),
-                  onChanged: (m) => setState(() => _selected = m),
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() => _selectedMotorId = val);
+                    }
+                  },
                   decoration: const InputDecoration(border: OutlineInputBorder()),
                 ),
                 const SizedBox(height: 20),
@@ -167,14 +190,14 @@ class _AddOilScreenState extends State<AddOilScreen> {
                     if (v == null || v.trim().isEmpty) return 'KM wajib diisi';
                     final n = int.tryParse(v.trim());
                     if (n == null || n <= 0) return 'KM tidak valid';
-                    final last = _selected?.lastOdometer ?? 0;
+                    final last = selectedMotor.lastOdometer;
                     if (n < last) return 'KM harus >= KM terakhir ($last)';
                     return null;
                   },
                 ),
                 const SizedBox(height: 32),
                 FilledButton.icon(
-                  onPressed: _saving ? null : _save,
+                  onPressed: _saving ? null : () => _save(motos),
                   icon: const Icon(Icons.save),
                   label: Text(_saving ? 'Menyimpan...' : 'Simpan'),
                   style: FilledButton.styleFrom(

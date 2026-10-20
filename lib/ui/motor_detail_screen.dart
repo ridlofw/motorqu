@@ -192,7 +192,9 @@ class _MotorDetailScreenState extends State<MotorDetailScreen> {
                       DateFormat('dd MMM yyyy').format(r.performedAt.toDate()),
                     ),
                     trailing: Text(
-                      r.performedBy,
+                      r.performedByName?.isNotEmpty == true
+                          ? r.performedByName!
+                          : r.performedBy,
                       style: const TextStyle(fontSize: 11, color: Colors.grey),
                     ),
                   ),

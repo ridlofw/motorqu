@@ -6,6 +6,7 @@ class OilRecord {
   final Timestamp performedAt;
   final int odometer;
   final String performedBy;
+  final String? performedByName;
   final Timestamp createdAt;
 
   OilRecord({
@@ -14,6 +15,7 @@ class OilRecord {
     required this.performedAt,
     required this.odometer,
     required this.performedBy,
+    this.performedByName,
     required this.createdAt,
   });
 
@@ -24,6 +26,7 @@ class OilRecord {
       performedAt: data['performedAt'] ?? Timestamp.now(),
       odometer: data['odometer'] ?? 0,
       performedBy: data['performedBy'] ?? '',
+      performedByName: data['performedByName'],
       createdAt: data['createdAt'] ?? Timestamp.now(),
     );
   }
@@ -34,6 +37,7 @@ class OilRecord {
       'performedAt': performedAt,
       'odometer': odometer,
       'performedBy': performedBy,
+      'performedByName': performedByName ?? performedBy,
       'createdAt': createdAt,
     };
   }

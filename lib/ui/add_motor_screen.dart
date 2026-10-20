@@ -29,7 +29,8 @@ class _AddMotorScreenState extends State<AddMotorScreen> {
   late TextEditingController _initialKm;
 
   bool _isGroup = false;
-  FamilyGroup? _userGroup;
+  List<FamilyGroup> _userGroups = [];
+  String? _selectedGroupId;
   bool _loadingGroup = true;
   bool _saving = false;
 
@@ -70,12 +71,20 @@ class _AddMotorScreenState extends State<AddMotorScreen> {
 
   Future<void> _loadGroup() async {
     final uid = FirebaseAuth.instance.currentUser!.uid;
-    final g = await _db.getUserGroup(uid);
+    final groups = await _db.getUserGroupsList(uid);
     if (mounted) {
       setState(() {
-        _userGroup = g;
+        _userGroups = groups;
         _loadingGroup = false;
-        if (g == null) _isGroup = false;
+        if (_isEdit && widget.moto!.isGroupMotor && groups.any((g) => g.id == widget.moto!.groupId)) {
+          _isGroup = true;
+          _selectedGroupId = widget.moto!.groupId;
+        } else if (groups.isNotEmpty) {
+          _selectedGroupId = groups.first.id;
+        } else {
+          _isGroup = false;
+          _selectedGroupId = null;
+        }
       });
     }
   }
@@ -90,8 +99,8 @@ class _AddMotorScreenState extends State<AddMotorScreen> {
       final initialKm = int.tryParse(_initialKm.text.trim()) ?? 0;
 
       String targetGroupId;
-      if (_isGroup && _userGroup != null) {
-        targetGroupId = _userGroup!.id;
+      if (_isGroup && _selectedGroupId != null) {
+        targetGroupId = _selectedGroupId!;
       } else {
         targetGroupId = 'private_$uid';
       }
@@ -284,20 +293,41 @@ class _AddMotorScreenState extends State<AddMotorScreen> {
                   RadioListTile<bool>(
                     value: true,
                     groupValue: _isGroup,
-                    onChanged: _userGroup == null
+                    onChanged: _userGroups.isEmpty
                         ? null
                         : (v) => setState(() => _isGroup = v!),
                     title: Text(
-                      _userGroup == null
-                          ? 'Bagikan ke Grup Keluarga (Belum gabung grup)'
-                          : 'Bagikan ke Grup (${_userGroup!.name})',
+                      _userGroups.isEmpty
+                          ? 'Bagikan ke Grup Keluarga (Belum ada grup)'
+                          : 'Bagikan ke Grup Keluarga',
                     ),
                     subtitle: Text(
-                      _userGroup == null
+                      _userGroups.isEmpty
                           ? 'Buat atau gabung grup dulu lewat menu Profil.'
-                          : 'Terlihat dan bisa dicatat oleh semua anggota grup.',
+                          : 'Terlihat dan bisa dicatat oleh anggota grup.',
                     ),
                   ),
+                  if (_isGroup && _userGroups.isNotEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: DropdownButtonFormField<String>(
+                        value: _selectedGroupId,
+                        decoration: const InputDecoration(
+                          labelText: 'Pilih Grup Tujuan *',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: _userGroups.map((g) {
+                          return DropdownMenuItem<String>(
+                            value: g.id,
+                            child: Text(g.name),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          if (val != null) setState(() => _selectedGroupId = val);
+                        },
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 24),
                   FilledButton.icon(
                     onPressed: _saving ? null : _save,
