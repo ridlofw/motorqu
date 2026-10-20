@@ -74,7 +74,9 @@ class _AddOilScreenState extends State<AddOilScreen> {
       );
 
       await _db.addOilRecord(moto.id, record);
-      await _scheduleReminder(moto, km);
+      try {
+        await _scheduleReminder(moto, km);
+      } catch (_) {}
 
       if (!mounted) return;
       _toast('Berhasil dicatat');

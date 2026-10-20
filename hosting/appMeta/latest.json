@@ -1,7 +1,7 @@
 {
-  "versionName": "1.0.2",
-  "versionCode": "3",
+  "versionName": "1.0.3",
+  "versionCode": "4",
   "apkUrl": "https://github.com/ridlofw/motorqu/releases/latest/download/app-release.apk",
-  "notes": "Pembaruan v1.0.2: perbaikan dropdown & simpan oli, dukungan multi-grup, edit nama grup & kelola motor grup",
-  "updatedAt": "2026-10-20T00:00:00Z"
+  "notes": "Pembaruan v1.0.3: perbaikan catat oli & anti-duplikasi, hapus riwayat oli, perbaikan masukkan motor ke grup, dan dialog info/tes pengingat oli",
+  "updatedAt": "2026-10-20T04:00:00Z"
 }

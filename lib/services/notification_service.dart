@@ -53,44 +53,82 @@ class NotificationService {
   }
   void setEnabled(bool v) => _enabled = v;
 
+  Future<bool> requestPermission() async {
+    final granted = await _plugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.requestNotificationsPermission();
+    return granted ?? true;
+  }
+
+  Future<void> showTestNotification() async {
+    try {
+      if (!_initialized) await init();
+      const androidDetails = AndroidNotificationDetails(
+        _channelId,
+        _channelName,
+        channelDescription: _channelDesc,
+        importance: Importance.high,
+        priority: Priority.high,
+        playSound: true,
+        enableVibration: true,
+      );
+      const details = NotificationDetails(android: androidDetails);
+      await _plugin.show(
+        999,
+        'Pengingat Ganti Oli MotorQu',
+        'Notifikasi pengingat berfungsi dengan baik!',
+        details,
+      );
+    } catch (_) {}
+  }
+
   Future<void> scheduleOilReminder({
     required int id,
     required String title,
     required String body,
   }) async {
     if (!_enabled) return;
-    if (!_initialized) await init();
+    try {
+      if (!_initialized) await init();
 
-    const androidDetails = AndroidNotificationDetails(
-      _channelId,
-      _channelName,
-      channelDescription: _channelDesc,
-      importance: Importance.high,
-      priority: Priority.high,
-      playSound: true,
-      enableVibration: true,
-    );
-    const details = NotificationDetails(android: androidDetails);
+      const androidDetails = AndroidNotificationDetails(
+        _channelId,
+        _channelName,
+        channelDescription: _channelDesc,
+        importance: Importance.high,
+        priority: Priority.high,
+        playSound: true,
+        enableVibration: true,
+      );
+      const details = NotificationDetails(android: androidDetails);
 
-    final when = tz.TZDateTime.now(tz.local).add(const Duration(days: 30));
+      final when = tz.TZDateTime.now(tz.local).add(const Duration(days: 30));
 
-    await _plugin.zonedSchedule(
-      id,
-      title,
-      body,
-      when,
-      details,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-    );
+      await _plugin.zonedSchedule(
+        id,
+        title,
+        body,
+        when,
+        details,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+    } catch (_) {
+      // Notifikasi lokal tidak boleh menggagalkan proses penyimpanan data
+    }
   }
 
   Future<void> cancel(int id) async {
-    await _plugin.cancel(id);
+    try {
+      await _plugin.cancel(id);
+    } catch (_) {}
   }
 
   Future<void> cancelAll() async {
-    await _plugin.cancelAll();
+    try {
+      await _plugin.cancelAll();
+    } catch (_) {}
   }
 }

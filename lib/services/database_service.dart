@@ -75,6 +75,24 @@ class DatabaseService {
     return snapshot.docs.map((doc) => OilRecord.fromMap(doc.data(), doc.id)).toList();
   }
 
+  /// Hapus satu catatan oli (misal jika terduplikasi)
+  Future<void> deleteOilRecord(String motorcycleId, String recordId) async {
+    await _db
+        .collection('motorcycles')
+        .doc(motorcycleId)
+        .collection('records')
+        .doc(recordId)
+        .delete();
+
+    final remaining = await getOilRecords(motorcycleId);
+    if (remaining.isNotEmpty) {
+      await _db.collection('motorcycles').doc(motorcycleId).update({
+        'lastOdometer': remaining.first.odometer,
+        'lastServiceAt': remaining.first.performedAt,
+      });
+    }
+  }
+
   // ----------------------------- GROUPS -----------------------------
 
   /// Cari grup di mana user ini menjadi member (kompatibilitas backward)
@@ -109,12 +127,15 @@ class DatabaseService {
 
   /// Stream semua motor yang ada di dalam sebuah grup
   Stream<List<Motorcycle>> getGroupMotorcycles(String groupId) {
+    final uid = _uid;
+    if (uid == null) return const Stream.empty();
     return _db
         .collection('motorcycles')
-        .where('groupId', isEqualTo: groupId)
+        .where('memberUids', arrayContains: uid)
         .snapshots()
         .map((s) => s.docs
             .map((d) => Motorcycle.fromMap(d.data(), d.id))
+            .where((m) => m.groupId == groupId)
             .toList());
   }
 
@@ -122,10 +143,11 @@ class DatabaseService {
   Future<List<Motorcycle>> getUserPrivateMotorcycles(String uid) async {
     final snapshot = await _db
         .collection('motorcycles')
-        .where('groupId', isEqualTo: 'private_$uid')
+        .where('memberUids', arrayContains: uid)
         .get();
     return snapshot.docs
         .map((d) => Motorcycle.fromMap(d.data(), d.id))
+        .where((m) => m.groupId == 'private_$uid' || !m.isGroupMotor)
         .toList();
   }
 

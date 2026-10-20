@@ -25,6 +25,45 @@ class _MotorDetailScreenState extends State<MotorDetailScreen> {
     super.initState();
   }
 
+  Future<void> _deleteOilRecord(OilRecord r) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Hapus Catatan Oli'),
+        content: Text(
+          'Hapus catatan oli pada ${r.odometer} KM '
+          '(${DateFormat('dd MMM yyyy').format(r.performedAt.toDate())})?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await _db.deleteOilRecord(widget.motorcycle.id, r.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Catatan oli berhasil dihapus')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal menghapus: $e')),
+        );
+      }
+    }
+  }
+
   Future<void> _deleteMotor() async {
     final ok = await showDialog<bool>(
       context: context,
@@ -189,13 +228,13 @@ class _MotorDetailScreenState extends State<MotorDetailScreen> {
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     subtitle: Text(
-                      DateFormat('dd MMM yyyy').format(r.performedAt.toDate()),
+                      '${DateFormat('dd MMM yyyy').format(r.performedAt.toDate())} • '
+                      '${r.performedByName?.isNotEmpty == true ? r.performedByName! : r.performedBy}',
                     ),
-                    trailing: Text(
-                      r.performedByName?.isNotEmpty == true
-                          ? r.performedByName!
-                          : r.performedBy,
-                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete_outline, size: 20, color: Colors.redAccent),
+                      tooltip: 'Hapus Catatan Ini',
+                      onPressed: () => _deleteOilRecord(r),
                     ),
                   ),
                 ),
