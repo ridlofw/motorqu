@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.3+4
+version: 1.0.4+5
 
 environment:
   sdk: ^3.13.5
@@ -106,10 +106,10 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
-# Android launcher icon: MotorQu logo (M-shaped motorcycle).
+# Android launcher icon: MotorQu logo.
 flutter_launcher_icons:
   android: true
-  image_path: "logomotorqu.png"
+  image_path: "logomotorqu_legacy.png"
   min_sdk_android: 21
-  adaptive_icon_background: "#007bff"
-  adaptive_icon_foreground: "logomotorqu.png"
+  adaptive_icon_background: "#0147C1"
+  adaptive_icon_foreground: "logomotorqu_adaptive.png"
