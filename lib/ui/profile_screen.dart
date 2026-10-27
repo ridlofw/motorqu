@@ -24,8 +24,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final UpdateService _update = UpdateService();
 
   bool _notifEnabled = true;
-  String _version = '1.0.5';
-  String _buildNumber = '6';
+  String _version = '1.0.6';
+  String _buildNumber = '7';
 
   @override
   void initState() {

@@ -91,7 +91,8 @@ class _GroupScreenState extends State<GroupScreen> {
 
     if (code == null || code.isEmpty) return;
     try {
-      await _db.joinGroupWithCode(code);
+      final newGroupId = await _db.joinGroupWithCode(code);
+      setState(() => _selectedGroupId = newGroupId);
       _toast('Berhasil bergabung ke grup');
     } catch (e) {
       _toast('Gagal gabung: $e');

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -12,30 +13,71 @@ class DatabaseService {
 
   // ----------------------------- MOTORCYCLES -----------------------------
 
-  /// Mengambil seluruh motor yang diakses oleh user (motor pribadi + motor grup).
-  /// Rules sekarang menggunakan field `memberUids` yang di-denormalisasi, jadi
-  /// cukup satu query `arrayContains` — tanpa perlu `get()` pada dokumen grup.
+  /// Mengambil seluruh motor yang diakses oleh user (motor pribadi + motor dari semua grup yang diikuti).
+  /// Menggunakan gabungan stream grup user dan query motor dengan whereIn groupId,
+  /// sehingga saat user bergabung atau keluar grup, motor otomatis muncul/hilang secara real-time.
   Stream<List<Motorcycle>> getUserMotorcycles(String uid) {
-    final query = _db
-        .collection('motorcycles')
-        .where('memberUids', arrayContains: uid)
-        .snapshots();
-    return query.map((s) => s.docs
-        .map((d) => Motorcycle.fromMap(d.data(), d.id))
-        .toList());
+    late StreamController<List<Motorcycle>> controller;
+    StreamSubscription? groupSub;
+    StreamSubscription? motoSub;
+
+    controller = StreamController<List<Motorcycle>>.broadcast(
+      onListen: () {
+        groupSub = _db
+            .collection('groups')
+            .where('memberUids', arrayContains: uid)
+            .snapshots()
+            .listen((groupSnap) {
+          final groupIds = groupSnap.docs.map((d) => d.id).toList();
+          final allGroupIds = <String>{'private_$uid', ...groupIds}.take(30).toList();
+
+          motoSub?.cancel();
+          motoSub = _db
+              .collection('motorcycles')
+              .where('groupId', whereIn: allGroupIds)
+              .snapshots()
+              .listen(
+            (motoSnap) {
+              final motos = motoSnap.docs
+                  .map((d) => Motorcycle.fromMap(d.data(), d.id))
+                  .toList();
+              if (!controller.isClosed) {
+                controller.add(motos);
+              }
+            },
+            onError: (err) {
+              if (!controller.isClosed) {
+                controller.addError(err);
+              }
+            },
+          );
+        }, onError: (err) {
+          if (!controller.isClosed) {
+            controller.addError(err);
+          }
+        });
+      },
+      onCancel: () {
+        motoSub?.cancel();
+        groupSub?.cancel();
+      },
+    );
+
+    return controller.stream;
   }
 
   Future<String> addMotorcycle(Motorcycle moto) async {
     final uid = _uid!;
     final motoMap = moto.toMap();
-    // Tambahkan memberUids berdasarkan groupId untuk memudahkan Rules
-    if (moto.groupId == 'private_$uid') {
-      motoMap['memberUids'] = [uid];
-    } else {
-      // Ambil memberUids dari grup keluarga
-      final g = await _db.collection('groups').doc(moto.groupId).get();
-      motoMap['memberUids'] = g.exists ? g.data()!['memberUids'] : [uid];
-    }
+    motoMap['createdBy'] = uid;
+    motoMap['createdAt'] = Timestamp.now();
+
+    final targetGroupId = (moto.groupId.isNotEmpty && moto.isGroupMotor)
+        ? moto.groupId
+        : 'private_$uid';
+    motoMap['groupId'] = targetGroupId;
+    motoMap['isGroupMotor'] = moto.isGroupMotor && targetGroupId != 'private_$uid';
+    motoMap['memberUids'] = [uid];
 
     final doc = await _db.collection('motorcycles').add(motoMap);
     return doc.id;
@@ -127,15 +169,12 @@ class DatabaseService {
 
   /// Stream semua motor yang ada di dalam sebuah grup
   Stream<List<Motorcycle>> getGroupMotorcycles(String groupId) {
-    final uid = _uid;
-    if (uid == null) return const Stream.empty();
     return _db
         .collection('motorcycles')
-        .where('memberUids', arrayContains: uid)
+        .where('groupId', isEqualTo: groupId)
         .snapshots()
         .map((s) => s.docs
             .map((d) => Motorcycle.fromMap(d.data(), d.id))
-            .where((m) => m.groupId == groupId)
             .toList());
   }
 
@@ -143,19 +182,33 @@ class DatabaseService {
   Future<List<Motorcycle>> getUserPrivateMotorcycles(String uid) async {
     final snapshot = await _db
         .collection('motorcycles')
-        .where('memberUids', arrayContains: uid)
+        .where('groupId', isEqualTo: 'private_$uid')
         .get();
-    return snapshot.docs
+    final list = snapshot.docs
         .map((d) => Motorcycle.fromMap(d.data(), d.id))
-        .where((m) => m.groupId == 'private_$uid' || !m.isGroupMotor)
         .toList();
+
+    // Pastikan jika ada motor pribadi buatan user yang belum punya groupId atau bukan motor grup
+    final createdSnap = await _db
+        .collection('motorcycles')
+        .where('createdBy', isEqualTo: uid)
+        .get();
+    for (final doc in createdSnap.docs) {
+      final m = Motorcycle.fromMap(doc.data(), doc.id);
+      if ((m.groupId.isEmpty || m.groupId == 'private_$uid' || !m.isGroupMotor) &&
+          !list.any((existing) => existing.id == m.id)) {
+        list.add(m);
+      }
+    }
+    return list;
   }
 
   /// Memasukkan motor pribadi ke dalam grup
   Future<void> assignMotorcycleToGroup(String motoId, String groupId) async {
     final g = await _db.collection('groups').doc(groupId).get();
-    if (!g.exists) throw Exception('Grup tidak ditemukan');
-    final members = List<String>.from(g.data()!['memberUids'] ?? [_uid!]);
+    final members = g.exists
+        ? List<String>.from(g.data()!['memberUids'] ?? [_uid!])
+        : [_uid!];
 
     await _db.collection('motorcycles').doc(motoId).update({
       'groupId': groupId,
@@ -176,7 +229,7 @@ class DatabaseService {
   Future<String> createGroup(String groupName) async {
     final uid = _uid!;
     final doc = await _db.collection('groups').add({
-      'name': groupName,
+      'name': groupName.trim(),
       'ownerId': uid,
       'memberUids': [uid],
       'createdAt': Timestamp.now(),
@@ -184,7 +237,7 @@ class DatabaseService {
     return doc.id;
   }
 
-  /// Membuat kode undangan unik 6 karakter (Hanya bisa dipanggil oleh Owner Grup)
+  /// Membuat kode undangan unik 6 karakter (Bisa dipanggil oleh Anggota/Owner Grup)
   Future<String> createInviteCode(String groupId) async {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     final random = Random.secure();
@@ -204,25 +257,43 @@ class DatabaseService {
   }
 
   /// Mengambil detail anggota grup lainnya.
-  /// Catatan: rules melarang `list` pada users, jadi each doc di-get() manual.
   Future<List<Map<String, dynamic>>> getGroupMembers(FamilyGroup group) async {
     if (group.memberUids.isEmpty) return [];
     final result = <Map<String, dynamic>>[];
     for (final uid in group.memberUids) {
-      final doc = await _db.collection('users').doc(uid).get();
-      if (doc.exists) {
-        final data = Map<String, dynamic>.from(doc.data()!);
-        data['uid'] = uid;
-        result.add(data);
+      try {
+        final doc = await _db.collection('users').doc(uid).get();
+        if (doc.exists) {
+          final data = Map<String, dynamic>.from(doc.data()!);
+          data['uid'] = uid;
+          result.add(data);
+        } else {
+          result.add({
+            'uid': uid,
+            'displayName': 'Anggota Keluarga',
+            'email': '',
+          });
+        }
+      } catch (_) {
+        result.add({
+          'uid': uid,
+          'displayName': 'Anggota Keluarga',
+          'email': '',
+        });
       }
     }
     return result;
   }
 
   /// Bergabung ke grup menggunakan kode undangan.
-  Future<void> joinGroupWithCode(String inviteCode) async {
-    final inviteDoc = await _db.collection('invites').doc(inviteCode).get();
+  /// Mengembalikan groupId yang berhasil dimasuki.
+  Future<String> joinGroupWithCode(String inviteCode) async {
+    final cleanCode = inviteCode.trim().toUpperCase();
+    if (cleanCode.length != 6) {
+      throw Exception('Kode undangan harus 6 karakter');
+    }
 
+    final inviteDoc = await _db.collection('invites').doc(cleanCode).get();
     if (!inviteDoc.exists) {
       throw Exception('Kode undangan tidak ditemukan atau sudah dipakai');
     }
@@ -236,69 +307,77 @@ class DatabaseService {
     final groupId = inviteData['groupId'] as String;
     final uid = _uid!;
 
-    // Update langsung; rules (selfJoin) yang memvalidasi transisi keanggotaan.
-    // Tidak boleh pakai transaction.get() karena member baru tidak punya
-    // hak baca dokumen grup sebelum bergabung.
-    try {
-      await _db.collection('groups').doc(groupId).update({
-        'memberUids': FieldValue.arrayUnion([uid]),
-        'lastInviteUsed': inviteCode,
-      });
-
-      // Sinkronisasi memberUids ke semua motor di grup ini agar Rules tetap
-      // bisa dihitung tanpa `get()` (denormalisasi).
-      final motoSnapshot = await _db
-          .collection('motorcycles')
-          .where('groupId', isEqualTo: groupId)
-          .get();
-      for (final doc in motoSnapshot.docs) {
-        final current = List<String>.from(doc.data()['memberUids'] ?? []);
-        if (!current.contains(uid)) {
-          current.add(uid);
-          await doc.reference.update({'memberUids': current});
-        }
-      }
-    } on FirebaseException catch (e) {
-      if (e.code == 'permission-denied') {
-        throw Exception('Kode undangan tidak valid atau kamu sudah di grup ini');
-      }
-      rethrow;
+    final groupRef = _db.collection('groups').doc(groupId);
+    final groupSnap = await groupRef.get();
+    if (!groupSnap.exists) {
+      throw Exception('Grup yang dituju sudah tidak ada');
     }
 
-    // Kode dipakai sekali: hapus (boleh oleh member grup according to rules).
-    try {
-      await _db.collection('invites').doc(inviteCode).delete();
-    } catch (_) {
-      // bukan owner/member? biarkan kedaluwarsa sendiri (7 hari).
+    final currentMembers = List<String>.from(groupSnap.data()?['memberUids'] ?? []);
+    if (currentMembers.contains(uid)) {
+      throw Exception('Anda sudah menjadi anggota di grup ini');
     }
+
+    // Tambahkan UID ke anggota grup
+    await groupRef.update({
+      'memberUids': FieldValue.arrayUnion([uid]),
+      'lastInviteUsed': cleanCode,
+    });
+
+    // Hapus kode undangan agar tidak bisa dipakai orang lain lagi (single-use)
+    try {
+      await _db.collection('invites').doc(cleanCode).delete();
+    } catch (_) {}
+
+    return groupId;
   }
 
   Future<void> leaveGroup(String groupId) async {
     final uid = _uid!;
     final groupRef = _db.collection('groups').doc(groupId);
+    final groupSnap = await groupRef.get();
+    if (!groupSnap.exists) return;
 
-    await _db.runTransaction((transaction) async {
-      final snapshot = await transaction.get(groupRef);
-      if (!snapshot.exists) return;
+    final data = groupSnap.data()!;
+    final ownerId = data['ownerId'] as String?;
+    final members = List<String>.from(data['memberUids'] ?? []);
 
-      final currentMembers = List<String>.from(snapshot.data()!['memberUids'] ?? []);
-      currentMembers.remove(uid);
-      transaction.update(groupRef, {'memberUids': currentMembers});
-
-      // Sinkronisasi memberUids ke motor di grup ini.
-      final motoSnapshot =
-          await _db.collection('motorcycles').where('groupId', isEqualTo: groupId).get();
-      for (final doc in motoSnapshot.docs) {
-        final motoMembers =
-            List<String>.from(doc.data()['memberUids'] ?? []);
-        motoMembers.remove(uid);
-        transaction.update(doc.reference, {'memberUids': motoMembers});
+    if (members.length <= 1) {
+      // Jika anggota terakhir keluar, hapus grup
+      await groupRef.delete();
+    } else {
+      final updates = <String, dynamic>{
+        'memberUids': FieldValue.arrayRemove([uid]),
+      };
+      // Jika owner yang keluar tapi masih ada anggota lain, alihkan owner ke anggota berikutnya
+      if (ownerId == uid) {
+        final remaining = members.where((m) => m != uid).toList();
+        if (remaining.isNotEmpty) {
+          updates['ownerId'] = remaining.first;
+        }
       }
-    });
+      await groupRef.update(updates);
+    }
+
+    // Kembalikan semua motor buatan user yang ada di grup ini kembali menjadi motor pribadi
+    try {
+      final myMotors = await _db
+          .collection('motorcycles')
+          .where('groupId', isEqualTo: groupId)
+          .where('createdBy', isEqualTo: uid)
+          .get();
+      for (final doc in myMotors.docs) {
+        await doc.reference.update({
+          'groupId': 'private_$uid',
+          'isGroupMotor': false,
+          'memberUids': [uid],
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> updateGroupName(String groupId, String newName) async {
-    await _db.collection('groups').doc(groupId).update({'name': newName});
+    await _db.collection('groups').doc(groupId).update({'name': newName.trim()});
   }
 
   /// Stream riwayat oli (urut terbaru dulu) — dipakai di layar detail motor.

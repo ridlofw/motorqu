@@ -9,120 +9,28 @@ service cloud.firestore {
 
     // ------------------------- Users -------------------------
     match /users/{userId} {
-      allow get: if signedIn();
-      allow list: if false;
-      allow create, update: if signedIn() && request.auth.uid == userId;
-      allow delete: if false;
+      allow read: if signedIn();
+      allow write: if signedIn() && request.auth.uid == userId;
     }
 
     // ------------------------- Groups -------------------------
     match /groups/{groupId} {
-      function isMember() {
-        return signedIn() && request.auth.uid in resource.data.memberUids;
-      }
-      function isOwner() {
-        return isMember() && resource.data.ownerId == request.auth.uid;
-      }
-
-      allow create: if signedIn()
-                    && request.resource.data.ownerId == request.auth.uid
-                    && request.auth.uid in request.resource.data.memberUids;
-
-      allow get: if signedIn();
-      allow list: if signedIn() && request.auth.uid in resource.data.memberUids;
-
-      allow update: if signedIn() && (
-        isOwner()
-        || (isMember() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name']))
-        || (
-          // Self-join: menambah uid sendiri ke memberUids
-          request.resource.data.memberUids.hasAll(resource.data.memberUids)
-          && request.resource.data.memberUids.size() == resource.data.memberUids.size() + 1
-          && request.auth.uid in request.resource.data.memberUids
-        )
-        || (
-          // Self-leave: menghapus uid sendiri dari memberUids
-          resource.data.memberUids.hasAll(request.resource.data.memberUids)
-          && request.resource.data.memberUids.size() == resource.data.memberUids.size() - 1
-          && !(request.auth.uid in request.resource.data.memberUids)
-        )
-      );
-
-      allow delete: if isOwner();
+      allow read, write: if signedIn();
     }
 
     // ------------------------- Invites -------------------------
     match /invites/{code} {
       allow read: if true;
-      allow create, update, delete: if signedIn();
+      allow write: if signedIn();
     }
 
     // ------------------------- Motorcycles -------------------------
     match /motorcycles/{motorcycleId} {
-      function groupDoc(groupId) {
-        return /databases/$(database)/documents/groups/$(groupId);
-      }
-
-      function inGroup(groupId) {
-        return signedIn()
-          && groupId is string
-          && groupId != ''
-          && exists(groupDoc(groupId))
-          && request.auth.uid in get(groupDoc(groupId)).data.memberUids;
-      }
-
-      // Query daftar motor user
-      allow list: if signedIn() && (
-        request.auth.uid in resource.data.memberUids
-        || resource.data.groupId == 'private_' + request.auth.uid
-        || resource.data.createdBy == request.auth.uid
-      );
-
-      // Ambil 1 motor spesifik
-      allow get: if signedIn() && (
-        request.auth.uid in resource.data.memberUids
-        || inGroup(resource.data.groupId)
-        || resource.data.groupId == 'private_' + request.auth.uid
-        || resource.data.createdBy == request.auth.uid
-      );
-
-      // Tambah motor baru
-      allow create: if signedIn()
-                    && request.resource.data.memberUids is list
-                    && request.auth.uid in request.resource.data.memberUids
-                    && request.resource.data.createdBy == request.auth.uid;
-
-      // Update motor
-      allow update: if signedIn() && (
-        request.auth.uid in resource.data.memberUids
-        || inGroup(resource.data.groupId)
-        || resource.data.createdBy == request.auth.uid
-      );
-
-      // Hapus motor
-      allow delete: if signedIn() && (
-        request.auth.uid in resource.data.memberUids
-        || inGroup(resource.data.groupId)
-        || resource.data.createdBy == request.auth.uid
-      );
+      allow read, write: if signedIn();
 
       // Subkoleksi riwayat ganti oli
       match /records/{recordId} {
-        function parentMoto() {
-          return get(/databases/$(database)/documents/motorcycles/$(motorcycleId)).data;
-        }
-
-        function canAccessMoto() {
-          return signedIn() && (
-            request.auth.uid in parentMoto().memberUids
-            || parentMoto().groupId == 'private_' + request.auth.uid
-            || parentMoto().createdBy == request.auth.uid
-          );
-        }
-
-        allow read, list, get: if canAccessMoto();
-        allow create: if canAccessMoto();
-        allow update, delete: if canAccessMoto();
+        allow read, write: if signedIn();
       }
     }
 
