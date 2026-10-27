@@ -24,8 +24,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final UpdateService _update = UpdateService();
 
   bool _notifEnabled = true;
-  String _version = '1.0.8';
-  String _buildNumber = '9';
+  String _version = '1.0.9';
+  String _buildNumber = '10';
 
   @override
   void initState() {
@@ -291,8 +291,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     CircleAvatar(
                       radius: 34,
-                      backgroundImage: photo != null ? NetworkImage(photo) : null,
-                      child: photo == null
+                      backgroundImage: photo != null && photo.trim().isNotEmpty
+                          ? NetworkImage(photo)
+                          : null,
+                      child: photo == null || photo.trim().isEmpty
                           ? const Icon(Icons.person, size: 36, color: Colors.blue)
                           : null,
                     ),

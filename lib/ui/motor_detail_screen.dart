@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/motorcycle.dart';
 import '../models/oil_record.dart';
@@ -64,13 +65,14 @@ class _MotorDetailScreenState extends State<MotorDetailScreen> {
     }
   }
 
-  Future<void> _deleteMotor() async {
+  Future<void> _deleteMotor(Motorcycle moto) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Hapus Motor'),
-        content:
-            const Text('Yakin hapus motor ini beserta semua riwayat oli?'),
+        title: const Text('Hapus Motor Permanen'),
+        content: Text(
+          'Yakin hapus motor "${moto.name}" beserta semua riwayat olinya secara permanen? Tindakan ini tidak dapat dibatalkan.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -78,105 +80,135 @@ class _MotorDetailScreenState extends State<MotorDetailScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Hapus'),
           ),
         ],
       ),
     );
     if (ok != true) return;
-    await _db.deleteMotorcycle(widget.motorcycle.id);
-    await _notif.cancel(widget.motorcycle.id.hashCode);
+    await _db.deleteMotorcycle(moto.id);
+    await _notif.cancel(moto.id.hashCode & 0x7FFFFFFF);
     if (mounted) Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
-    final moto = widget.motorcycle;
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(moto.name),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => AddMotorScreen(moto: moto)),
-              );
-            },
-          ),
-          IconButton(icon: const Icon(Icons.delete), onPressed: _deleteMotor),
-        ],
-      ),
-      body: StreamBuilder<List<OilRecord>>(
-        stream: _db.getOilRecordsStream(moto.id),
-        builder: (context, snapshot) {
-          final records = snapshot.data ?? [];
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              FilledButton.icon(
+    final myUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+
+    return StreamBuilder<Motorcycle?>(
+      stream: _db.getMotorcycleStream(widget.motorcycle.id),
+      builder: (context, motoSnap) {
+        final moto = motoSnap.data ?? widget.motorcycle;
+        final isCreator = moto.createdBy == myUid;
+
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(moto.name),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.edit),
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (_) => AddOilScreen(preselectMotorId: moto.id),
-                    ),
+                    MaterialPageRoute(builder: (_) => AddMotorScreen(moto: moto)),
                   );
                 },
-                icon: const Icon(Icons.build_circle),
-                label: const Text('Catat Ganti Oli'),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 48),
+              ),
+              if (isCreator)
+                IconButton(
+                  icon: const Icon(Icons.delete),
+                  tooltip: 'Hapus Motor Permanen',
+                  onPressed: () => _deleteMotor(moto),
                 ),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Riwayat Oli',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              records.isEmpty
-                  ? const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16),
-                      child: Center(
-                        child: Text('Belum ada riwayat ganti oli.'),
-                      ),
-                    )
-                  : _buildTimeline(records),
-              const SizedBox(height: 24),
-              const Divider(),
-              const SizedBox(height: 12),
-              const Text(
-                'Info Motor',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              _InfoRow(label: 'Merk', value: moto.brand),
-              _InfoRow(label: 'Model', value: moto.model),
-              if (moto.plate != null && moto.plate!.isNotEmpty)
-                _InfoRow(label: 'Plat', value: moto.plate!),
-              if (moto.year != null && moto.year!.isNotEmpty)
-                _InfoRow(label: 'Tahun', value: moto.year!),
-              if (moto.color != null && moto.color!.isNotEmpty)
-                _InfoRow(label: 'Warna', value: moto.color!),
-              _InfoRow(label: 'KM Terakhir', value: '${moto.lastOdometer} KM'),
-              _InfoRow(
-                label: 'Target Oli Berikutnya',
-                value: '${moto.nextDueKm} KM',
-              ),
-              _InfoRow(
-                label: 'Interval Pengingat',
-                value: '${moto.reminderIntervalKm} KM',
-              ),
-              _InfoRow(
-                label: 'Kepemilikan',
-                value: moto.isGroupMotor ? 'Grup Keluarga' : 'Pribadi',
-              ),
             ],
-          );
-        },
-      ),
+          ),
+          body: StreamBuilder<List<OilRecord>>(
+            stream: _db.getOilRecordsStream(moto.id),
+            builder: (context, snapshot) {
+              final records = snapshot.data ?? [];
+              return ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  FilledButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => AddOilScreen(preselectMotorId: moto.id),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.build_circle),
+                    label: const Text('Catat Ganti Oli'),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 48),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Riwayat Oli',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  records.isEmpty
+                      ? const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Center(
+                            child: Text('Belum ada riwayat ganti oli.'),
+                          ),
+                        )
+                      : _buildTimeline(records),
+                  const SizedBox(height: 24),
+                  const Divider(),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Info Motor',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  _InfoRow(label: 'Merk', value: moto.brand),
+                  _InfoRow(label: 'Model', value: moto.model),
+                  if (moto.plate != null && moto.plate!.isNotEmpty)
+                    _InfoRow(label: 'Plat', value: moto.plate!),
+                  if (moto.year != null && moto.year!.isNotEmpty)
+                    _InfoRow(label: 'Tahun', value: moto.year!),
+                  if (moto.color != null && moto.color!.isNotEmpty)
+                    _InfoRow(label: 'Warna', value: moto.color!),
+                  _InfoRow(label: 'KM Terakhir', value: '${moto.lastOdometer} KM'),
+                  _InfoRow(
+                    label: 'Target Oli Berikutnya',
+                    value: '${moto.nextDueKm} KM',
+                  ),
+                  _InfoRow(
+                    label: 'Interval Pengingat',
+                    value: '${moto.reminderIntervalKm} KM',
+                  ),
+                  _InfoRow(
+                    label: 'Kepemilikan',
+                    value: moto.isGroupMotor ? 'Grup Keluarga' : 'Pribadi',
+                  ),
+                  if (isCreator) ...[
+                    const SizedBox(height: 28),
+                    OutlinedButton.icon(
+                      onPressed: () => _deleteMotor(moto),
+                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                      label: const Text(
+                        'Hapus Motor Permanen',
+                        style: TextStyle(color: Colors.red),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Colors.red),
+                        minimumSize: const Size(double.infinity, 44),
+                      ),
+                    ),
+                  ],
+                ],
+              );
+            },
+          ),
+        );
+      },
     );
   }
 

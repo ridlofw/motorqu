@@ -91,10 +91,11 @@ class _AddOilScreenState extends State<AddOilScreen> {
   Future<void> _scheduleReminder(Motorcycle moto, int km) async {
     final target = km + moto.reminderIntervalKm;
     await _notif.scheduleOilReminder(
-      id: moto.id.hashCode,
+      id: moto.id.hashCode & 0x7FFFFFFF,
       title: 'Cek oli ${moto.name}',
       body: 'Jika KM motor ${moto.name} sudah lebih dari ${target}KM, '
           'jangan lupa ganti oli yaa',
+      payload: moto.id,
     );
   }
 

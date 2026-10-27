@@ -14,13 +14,21 @@ import 'ui/add_oil_screen.dart';
 import 'ui/group_screen.dart';
 import 'ui/profile_screen.dart';
 
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Firebase.initializeApp();
 
   final notificationService = NotificationService();
-  await notificationService.init();
+  await notificationService.init(
+    onNotificationTap: (motorId) {
+      if (motorId.isNotEmpty) {
+        navigatorKey.currentState?.pushNamed('/addOil', arguments: motorId);
+      }
+    },
+  );
 
   runApp(MyApp(notificationService: notificationService));
 }
@@ -33,6 +41,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'MotorQu',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(

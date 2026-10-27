@@ -52,6 +52,11 @@ class UpdateService {
     void Function(int received, int total, String status)? onProgress,
   }) async {
     final dir = await _downloadDir();
+    if (!dir.existsSync()) {
+      try {
+        await dir.create(recursive: true);
+      } catch (_) {}
+    }
 
     // Beri nama spesifik versi agar tidak bentrok dengan sisa versi lama
     final filename = targetVersionCode != null

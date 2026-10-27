@@ -17,7 +17,7 @@ class NotificationService {
   static const String _channelName = 'Pengingat Ganti Oli';
   static const String _channelDesc = 'Notifikasi cek oli tiap 30 hari';
 
-  Future<void> init() async {
+  Future<void> init({void Function(String motorId)? onNotificationTap}) async {
     if (_initialized) return;
     tzdata.initializeTimeZones();
     try {
@@ -29,7 +29,23 @@ class NotificationService {
     const initSettings = InitializationSettings(
       android: AndroidInitializationSettings('@mipmap/ic_launcher'),
     );
-    await _plugin.initialize(initSettings);
+    await _plugin.initialize(
+      initSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        final payload = response.payload;
+        if (payload != null && payload.isNotEmpty) {
+          onNotificationTap?.call(payload);
+        }
+      },
+    );
+
+    // Periksa apakah aplikasi dibuka dari ketukan notifikasi saat tertutup
+    final launchDetails = await _plugin.getNotificationAppLaunchDetails();
+    if (launchDetails?.didNotificationLaunchApp == true &&
+        launchDetails?.notificationResponse?.payload != null &&
+        launchDetails!.notificationResponse!.payload!.isNotEmpty) {
+      onNotificationTap?.call(launchDetails.notificationResponse!.payload!);
+    }
 
     // Minta izin notifikasi utk Android 13+
     await _plugin
@@ -129,11 +145,12 @@ class NotificationService {
         const details = NotificationDetails(android: androidDetails);
 
         await _plugin.zonedSchedule(
-          moto.id.hashCode,
+          moto.id.hashCode & 0x7FFFFFFF,
           'Cek oli ${moto.name}',
           'Jika KM motor ${moto.name} sudah lebih dari ${target}KM, jangan lupa ganti oli yaa',
           scheduledDate,
           details,
+          payload: moto.id,
           androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
           uiLocalNotificationDateInterpretation:
               UILocalNotificationDateInterpretation.absoluteTime,
@@ -146,6 +163,7 @@ class NotificationService {
     required int id,
     required String title,
     required String body,
+    String? payload,
   }) async {
     if (!_enabled) return;
     try {
@@ -165,11 +183,12 @@ class NotificationService {
       final when = tz.TZDateTime.now(tz.local).add(const Duration(days: 30));
 
       await _plugin.zonedSchedule(
-        id,
+        id & 0x7FFFFFFF,
         title,
         body,
         when,
         details,
+        payload: payload,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
@@ -181,7 +200,7 @@ class NotificationService {
 
   Future<void> cancel(int id) async {
     try {
-      await _plugin.cancel(id);
+      await _plugin.cancel(id & 0x7FFFFFFF);
     } catch (_) {}
   }
 

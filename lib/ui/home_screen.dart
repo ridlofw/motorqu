@@ -310,6 +310,16 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  bool _checkIsDue(Motorcycle moto) {
+    final serviceDate = moto.lastServiceAt?.toDate();
+    if (serviceDate != null) {
+      final days = DateTime.now().difference(serviceDate).inDays;
+      return days >= 30;
+    }
+    final days = DateTime.now().difference(moto.createdAt.toDate()).inDays;
+    return days >= 30;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -464,7 +474,7 @@ class _HomeScreenState extends State<HomeScreen> {
         int dueCount = 0;
         int safeCount = 0;
         for (final m in allMotos) {
-          final isDue = m.lastOdometer >= m.nextDueKm;
+          final isDue = _checkIsDue(m);
           if (isDue) {
             dueCount++;
           } else {
@@ -535,10 +545,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       CircleAvatar(
                         radius: 22,
-                        backgroundImage: user?.photoURL != null
-                            ? NetworkImage(user!.photoURL!)
+                        backgroundImage: user?.photoURL != null && user!.photoURL!.trim().isNotEmpty
+                            ? NetworkImage(user.photoURL!)
                             : null,
-                        child: user?.photoURL == null
+                        child: user?.photoURL == null || user!.photoURL!.trim().isEmpty
                             ? const Icon(Icons.person, size: 24)
                             : null,
                       ),
@@ -700,8 +710,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildMotorCard(Motorcycle moto) {
-    final isDue = moto.lastOdometer >= moto.nextDueKm;
-    final kmRemaining = moto.nextDueKm - moto.lastOdometer;
+    final isDue = _checkIsDue(moto);
+    final serviceDate = moto.lastServiceAt?.toDate();
+    final daysSince = serviceDate != null
+        ? DateTime.now().difference(serviceDate).inDays
+        : DateTime.now().difference(moto.createdAt.toDate()).inDays;
+    final daysRemaining = 30 - daysSince;
 
     String dateStr = 'Belum dicatat';
     if (moto.lastServiceAt != null) {
@@ -879,8 +893,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     Expanded(
                       child: Text(
                         isDue
-                            ? 'Sudah melewati target! Segera ganti oli.'
-                            : 'Kondisi aman (sisa ~$kmRemaining KM)',
+                            ? 'Sudah $daysSince hari sejak ganti oli! Segera servis.'
+                            : 'Kondisi aman (jadwal cek: ${daysRemaining > 0 ? "$daysRemaining hari lagi" : "hari ini"})',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,

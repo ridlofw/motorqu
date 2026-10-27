@@ -816,10 +816,14 @@ class _GroupScreenState extends State<GroupScreen> {
                   final isGroupCreator = m['uid'] == activeGroup.ownerId;
                   return ListTile(
                     leading: CircleAvatar(
-                      backgroundImage: m['photoUrl'] != null
+                      backgroundImage: m['photoUrl'] != null &&
+                              (m['photoUrl'] as String).trim().isNotEmpty
                           ? NetworkImage(m['photoUrl'])
                           : null,
-                      child: m['photoUrl'] == null ? const Icon(Icons.person) : null,
+                      child: m['photoUrl'] == null ||
+                              (m['photoUrl'] as String).trim().isEmpty
+                          ? const Icon(Icons.person)
+                          : null,
                     ),
                     title: Text(
                       m['displayName'] ?? 'Pengguna',

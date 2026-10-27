@@ -106,14 +106,21 @@ class _AddMotorScreenState extends State<AddMotorScreen> {
       }
 
       if (_isEdit) {
+        final plateText = _plate.text.trim();
+        final yearText = _year.text.trim();
+        final colorText = _color.text.trim();
+
         await _db.updateMotorcycleFields(
           widget.moto!.id,
           name: _name.text.trim(),
           brand: _brand.text.trim(),
           model: _model.text.trim(),
-          plate: _plate.text.trim().isEmpty ? null : _plate.text.trim(),
-          year: _year.text.trim().isEmpty ? null : _year.text.trim(),
-          color: _color.text.trim().isEmpty ? null : _color.text.trim(),
+          plate: plateText.isEmpty ? null : plateText,
+          year: yearText.isEmpty ? null : yearText,
+          color: colorText.isEmpty ? null : colorText,
+          clearPlate: plateText.isEmpty,
+          clearYear: yearText.isEmpty,
+          clearColor: colorText.isEmpty,
           reminderIntervalKm: interval,
           groupId: targetGroupId,
           isGroupMotor: _isGroup,

@@ -132,7 +132,19 @@ class DatabaseService {
         'lastOdometer': remaining.first.odometer,
         'lastServiceAt': remaining.first.performedAt,
       });
+    } else {
+      await _db.collection('motorcycles').doc(motorcycleId).update({
+        'lastServiceAt': null,
+      });
     }
+  }
+
+  /// Stream detail satu motor secara real-time
+  Stream<Motorcycle?> getMotorcycleStream(String id) {
+    return _db.collection('motorcycles').doc(id).snapshots().map((doc) {
+      if (!doc.exists) return null;
+      return Motorcycle.fromMap(doc.data()!, doc.id);
+    });
   }
 
   // ----------------------------- GROUPS -----------------------------
@@ -534,14 +546,29 @@ class DatabaseService {
     int? reminderIntervalKm,
     String? groupId,
     bool? isGroupMotor,
+    bool clearPlate = false,
+    bool clearYear = false,
+    bool clearColor = false,
   }) async {
     final Map<String, dynamic> data = {};
     if (name != null) data['name'] = name;
     if (brand != null) data['brand'] = brand;
     if (model != null) data['model'] = model;
-    if (plate != null) data['plate'] = plate;
-    if (year != null) data['year'] = year;
-    if (color != null) data['color'] = color;
+    if (clearPlate) {
+      data['plate'] = null;
+    } else if (plate != null) {
+      data['plate'] = plate;
+    }
+    if (clearYear) {
+      data['year'] = null;
+    } else if (year != null) {
+      data['year'] = year;
+    }
+    if (clearColor) {
+      data['color'] = null;
+    } else if (color != null) {
+      data['color'] = color;
+    }
     if (reminderIntervalKm != null) data['reminderIntervalKm'] = reminderIntervalKm;
     if (isGroupMotor != null) data['isGroupMotor'] = isGroupMotor;
 
