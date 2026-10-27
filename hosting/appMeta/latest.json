@@ -1,7 +1,7 @@
 {
-  "versionName": "1.0.6",
-  "versionCode": "7",
+  "versionName": "1.0.7",
+  "versionCode": "8",
   "apkUrl": "https://github.com/ridlofw/motorqu/releases/latest/download/app-release.apk",
-  "notes": "Pembaruan v1.0.6: Perbaikan tuntas fitur grup (bergabung dengan kode undangan 100% mulus tanpa permission-denied, sinkronisasi otomatis motor grup ke semua akun keluarga, keluar grup rapi)",
-  "updatedAt": "2026-10-27T10:35:00Z"
+  "notes": "Pembaruan v1.0.7: Perbaikan login instan ke beranda tanpa restart/hapus cache, fitur owner mengeluarkan anggota dan mengangkat anggota jadi owner baru, serta sinkronisasi otomatis pengingat oli untuk semua motor pribadi dan grup.",
+  "updatedAt": "2026-10-27T12:00:00Z"
 }

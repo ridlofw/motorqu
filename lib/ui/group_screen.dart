@@ -324,6 +324,93 @@ class _GroupScreenState extends State<GroupScreen> {
     }
   }
 
+  Future<void> _kickMember(FamilyGroup group, Map<String, dynamic> member) async {
+    final memberName = member['displayName'] ?? 'Anggota';
+    final targetUid = member['uid'] as String;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.person_remove_rounded, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Keluarkan Anggota?'),
+          ],
+        ),
+        content: Text(
+          'Yakin ingin mengeluarkan "$memberName" dari grup "${group.name}"?\n\n'
+          'Motor milik "$memberName" yang ada di dalam grup ini akan otomatis ditarik kembali menjadi motor pribadinya.',
+          style: const TextStyle(height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Keluarkan'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await _db.kickMember(group.id, targetUid);
+      _toast('"$memberName" telah dikeluarkan dari grup');
+      setState(() {});
+    } catch (e) {
+      _toast('Gagal mengeluarkan anggota: $e');
+    }
+  }
+
+  Future<void> _transferOwnership(FamilyGroup group, Map<String, dynamic> member) async {
+    final memberName = member['displayName'] ?? 'Anggota';
+    final targetUid = member['uid'] as String;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.military_tech_rounded, color: Colors.amber),
+            SizedBox(width: 8),
+            Text('Pindahkan Owner?'),
+          ],
+        ),
+        content: Text(
+          'Jadikan "$memberName" sebagai Pemilik Grup (Owner) baru untuk "${group.name}"?\n\n'
+          'Anda akan menjadi anggota biasa setelah kepemilikan grup diserahkan.',
+          style: const TextStyle(height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Ya, Angkat Jadi Owner'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await _db.transferGroupOwnership(group.id, targetUid);
+      _toast('"$memberName" sekarang menjadi Pemilik Grup');
+      setState(() {});
+    } catch (e) {
+      _toast('Gagal memindahkan owner: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -697,7 +784,45 @@ class _GroupScreenState extends State<GroupScreen> {
                             ? const Chip(
                                 label: Text('Anda', style: TextStyle(fontSize: 11)),
                               )
-                            : null),
+                            : (isOwner
+                                ? PopupMenuButton<String>(
+                                    icon: const Icon(Icons.more_vert, size: 20),
+                                    tooltip: 'Kelola Anggota',
+                                    onSelected: (val) {
+                                      if (val == 'transfer') {
+                                        _transferOwnership(activeGroup, m);
+                                      }
+                                      if (val == 'kick') {
+                                        _kickMember(activeGroup, m);
+                                      }
+                                    },
+                                    itemBuilder: (ctx) => [
+                                      const PopupMenuItem(
+                                        value: 'transfer',
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.military_tech_rounded,
+                                                color: Colors.blue, size: 20),
+                                            SizedBox(width: 8),
+                                            Text('Angkat Jadi Owner'),
+                                          ],
+                                        ),
+                                      ),
+                                      const PopupMenuItem(
+                                        value: 'kick',
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.person_remove_rounded,
+                                                color: Colors.red, size: 20),
+                                            SizedBox(width: 8),
+                                            Text('Keluarkan dari Grup',
+                                                style: TextStyle(color: Colors.red)),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : null)),
                   );
                 },
               ),

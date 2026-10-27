@@ -15,7 +15,11 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _handleLogin() async {
     setState(() => _isLoading = true);
     try {
-      await _authService.signInWithGoogle();
+      final user = await _authService.signInWithGoogle();
+      if (user != null && mounted) {
+        // Langsung arahkan ke halaman utama dan bersihkan tumpukan rute
+        Navigator.pushNamedAndRemoveUntil(context, '/home', (_) => false);
+      }
     } catch (e) {
       if (mounted) {
         final sb = ScaffoldMessenger.of(context);

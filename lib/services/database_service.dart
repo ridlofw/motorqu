@@ -376,6 +376,65 @@ class DatabaseService {
     } catch (_) {}
   }
 
+  /// Mengeluarkan anggota dari grup (hanya bisa dilakukan oleh Owner grup)
+  Future<void> kickMember(String groupId, String targetUid) async {
+    final uid = _uid;
+    if (uid == null) throw Exception('Pengguna belum login');
+    final groupRef = _db.collection('groups').doc(groupId);
+    final groupSnap = await groupRef.get();
+    if (!groupSnap.exists) throw Exception('Grup tidak ditemukan');
+
+    final data = groupSnap.data()!;
+    final ownerId = data['ownerId'] as String?;
+    if (ownerId != uid) {
+      throw Exception('Hanya pemilik grup yang dapat mengeluarkan anggota');
+    }
+
+    await groupRef.update({
+      'memberUids': FieldValue.arrayRemove([targetUid]),
+    });
+
+    // Kembalikan semua motor milik targetUid di grup ini kembali menjadi motor pribadi
+    try {
+      final targetMotors = await _db
+          .collection('motorcycles')
+          .where('groupId', isEqualTo: groupId)
+          .where('createdBy', isEqualTo: targetUid)
+          .get();
+      for (final doc in targetMotors.docs) {
+        await doc.reference.update({
+          'groupId': 'private_$targetUid',
+          'isGroupMotor': false,
+          'memberUids': [targetUid],
+        });
+      }
+    } catch (_) {}
+  }
+
+  /// Mengalihkan kepemilikan grup ke anggota lain (hanya bisa dilakukan oleh Owner grup)
+  Future<void> transferGroupOwnership(String groupId, String newOwnerUid) async {
+    final uid = _uid;
+    if (uid == null) throw Exception('Pengguna belum login');
+    final groupRef = _db.collection('groups').doc(groupId);
+    final groupSnap = await groupRef.get();
+    if (!groupSnap.exists) throw Exception('Grup tidak ditemukan');
+
+    final data = groupSnap.data()!;
+    final ownerId = data['ownerId'] as String?;
+    if (ownerId != uid) {
+      throw Exception('Hanya pemilik grup yang dapat memindahkan kepemilikan');
+    }
+
+    final members = List<String>.from(data['memberUids'] ?? []);
+    if (!members.contains(newOwnerUid)) {
+      throw Exception('Pengguna tujuan bukan anggota grup ini');
+    }
+
+    await groupRef.update({
+      'ownerId': newOwnerUid,
+    });
+  }
+
   Future<void> updateGroupName(String groupId, String newName) async {
     await _db.collection('groups').doc(groupId).update({'name': newName.trim()});
   }

@@ -456,6 +456,9 @@ class _HomeScreenState extends State<HomeScreen> {
           return Center(child: Text('Terjadi kesalahan: ${snapshot.error}'));
         }
         final allMotos = snapshot.data ?? [];
+        if (allMotos.isNotEmpty) {
+          widget.notificationService.syncReminders(allMotos);
+        }
 
         // Hitung ringkasan oli
         int dueCount = 0;

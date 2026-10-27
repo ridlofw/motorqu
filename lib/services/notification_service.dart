@@ -1,6 +1,7 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
+import '../models/motorcycle.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -80,6 +81,64 @@ class NotificationService {
         'Notifikasi pengingat berfungsi dengan baik!',
         details,
       );
+    } catch (_) {}
+  }
+
+  DateTime? _lastSyncTime;
+
+  /// Sinkronisasi jadwal pengingat untuk SEMUA motor (motor pribadi maupun motor grup)
+  Future<void> syncReminders(List<Motorcycle> motorcycles) async {
+    if (!_enabled) return;
+    final now = DateTime.now();
+    if (_lastSyncTime != null && now.difference(_lastSyncTime!).inMinutes < 15) {
+      return; // Cukup sinkronkan berkala agar tidak boros proses
+    }
+    _lastSyncTime = now;
+
+    try {
+      if (!_initialized) await init();
+
+      for (final moto in motorcycles) {
+        final target = moto.nextDueKm;
+        final serviceDate = moto.lastServiceAt?.toDate();
+        final tz.TZDateTime scheduledDate;
+
+        if (serviceDate != null) {
+          final dueDate = serviceDate.add(const Duration(days: 30));
+          if (dueDate.isAfter(DateTime.now())) {
+            scheduledDate = tz.TZDateTime.from(dueDate, tz.local);
+          } else {
+            // Sudah lewat 30 hari sejak servis terakhir, ingatkan dalam 1 jam
+            scheduledDate =
+                tz.TZDateTime.now(tz.local).add(const Duration(hours: 1));
+          }
+        } else {
+          scheduledDate =
+              tz.TZDateTime.now(tz.local).add(const Duration(days: 30));
+        }
+
+        const androidDetails = AndroidNotificationDetails(
+          _channelId,
+          _channelName,
+          channelDescription: _channelDesc,
+          importance: Importance.high,
+          priority: Priority.high,
+          playSound: true,
+          enableVibration: true,
+        );
+        const details = NotificationDetails(android: androidDetails);
+
+        await _plugin.zonedSchedule(
+          moto.id.hashCode,
+          'Cek oli ${moto.name}',
+          'Jika KM motor ${moto.name} sudah lebih dari ${target}KM, jangan lupa ganti oli yaa',
+          scheduledDate,
+          details,
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+        );
+      }
     } catch (_) {}
   }
 
