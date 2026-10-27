@@ -217,12 +217,12 @@ class DatabaseService {
     });
   }
 
-  /// Mengeluarkan motor dari grup kembali menjadi motor pribadi
-  Future<void> removeMotorcycleFromGroup(String motoId, String uid) async {
+  /// Mengeluarkan motor dari grup kembali menjadi motor pribadi pemiliknya
+  Future<void> removeMotorcycleFromGroup(String motoId, String targetOwnerUid) async {
     await _db.collection('motorcycles').doc(motoId).update({
-      'groupId': 'private_$uid',
+      'groupId': 'private_$targetOwnerUid',
       'isGroupMotor': false,
-      'memberUids': [uid],
+      'memberUids': [targetOwnerUid],
     });
   }
 
@@ -231,6 +231,7 @@ class DatabaseService {
     final doc = await _db.collection('groups').add({
       'name': groupName.trim(),
       'ownerId': uid,
+      'ownerIds': [uid],
       'memberUids': [uid],
       'createdAt': Timestamp.now(),
     });
@@ -342,18 +343,27 @@ class DatabaseService {
     final ownerId = data['ownerId'] as String?;
     final members = List<String>.from(data['memberUids'] ?? []);
 
+    final ownerIds = data['ownerIds'] != null
+        ? List<String>.from(data['ownerIds'])
+        : (ownerId != null ? [ownerId] : <String>[]);
+
     if (members.length <= 1) {
       // Jika anggota terakhir keluar, hapus grup
       await groupRef.delete();
     } else {
       final updates = <String, dynamic>{
         'memberUids': FieldValue.arrayRemove([uid]),
+        'ownerIds': FieldValue.arrayRemove([uid]),
       };
-      // Jika owner yang keluar tapi masih ada anggota lain, alihkan owner ke anggota berikutnya
+      // Jika creator yang keluar tapi masih ada anggota lain, alihkan ownerId ke owner lain atau anggota lain
       if (ownerId == uid) {
-        final remaining = members.where((m) => m != uid).toList();
-        if (remaining.isNotEmpty) {
-          updates['ownerId'] = remaining.first;
+        final remainingOwners = ownerIds.where((o) => o != uid).toList();
+        final remainingMembers = members.where((m) => m != uid).toList();
+        if (remainingOwners.isNotEmpty) {
+          updates['ownerId'] = remainingOwners.first;
+        } else if (remainingMembers.isNotEmpty) {
+          updates['ownerId'] = remainingMembers.first;
+          updates['ownerIds'] = [remainingMembers.first];
         }
       }
       await groupRef.update(updates);
@@ -376,7 +386,7 @@ class DatabaseService {
     } catch (_) {}
   }
 
-  /// Mengeluarkan anggota dari grup (hanya bisa dilakukan oleh Owner grup)
+  /// Mengeluarkan anggota dari grup (hanya bisa dilakukan oleh salah satu Owner/Admin grup)
   Future<void> kickMember(String groupId, String targetUid) async {
     final uid = _uid;
     if (uid == null) throw Exception('Pengguna belum login');
@@ -385,16 +395,25 @@ class DatabaseService {
     if (!groupSnap.exists) throw Exception('Grup tidak ditemukan');
 
     final data = groupSnap.data()!;
-    final ownerId = data['ownerId'] as String?;
-    if (ownerId != uid) {
-      throw Exception('Hanya pemilik grup yang dapat mengeluarkan anggota');
+    final ownerId = data['ownerId'] as String? ?? '';
+    final ownerIds = data['ownerIds'] != null
+        ? List<String>.from(data['ownerIds'])
+        : (ownerId.isNotEmpty ? [ownerId] : <String>[]);
+
+    if (!ownerIds.contains(uid) && ownerId != uid) {
+      throw Exception('Hanya pemilik/admin grup yang dapat mengeluarkan anggota');
+    }
+
+    if (ownerId == targetUid) {
+      throw Exception('Pembuat grup utama tidak dapat dikeluarkan');
     }
 
     await groupRef.update({
       'memberUids': FieldValue.arrayRemove([targetUid]),
+      'ownerIds': FieldValue.arrayRemove([targetUid]),
     });
 
-    // Kembalikan semua motor milik targetUid di grup ini kembali menjadi motor pribadi
+    // Kembalikan semua motor milik targetUid di grup ini kembali menjadi motor pribadi miliknya
     try {
       final targetMotors = await _db
           .collection('motorcycles')
@@ -411,7 +430,57 @@ class DatabaseService {
     } catch (_) {}
   }
 
-  /// Mengalihkan kepemilikan grup ke anggota lain (hanya bisa dilakukan oleh Owner grup)
+  /// Mengangkat anggota biasa menjadi Owner/Admin grup (bisa punya banyak owner)
+  Future<void> promoteMemberToOwner(String groupId, String targetUid) async {
+    final uid = _uid;
+    if (uid == null) throw Exception('Pengguna belum login');
+    final groupRef = _db.collection('groups').doc(groupId);
+    final groupSnap = await groupRef.get();
+    if (!groupSnap.exists) throw Exception('Grup tidak ditemukan');
+
+    final data = groupSnap.data()!;
+    final ownerId = data['ownerId'] as String? ?? '';
+    final ownerIds = data['ownerIds'] != null
+        ? List<String>.from(data['ownerIds'])
+        : (ownerId.isNotEmpty ? [ownerId] : <String>[]);
+
+    if (!ownerIds.contains(uid) && ownerId != uid) {
+      throw Exception('Hanya pemilik/admin grup yang dapat mengangkat owner baru');
+    }
+
+    await groupRef.update({
+      'ownerIds': FieldValue.arrayUnion([targetUid]),
+    });
+  }
+
+  /// Menurunkan status Owner/Admin menjadi anggota biasa
+  Future<void> demoteOwner(String groupId, String targetUid) async {
+    final uid = _uid;
+    if (uid == null) throw Exception('Pengguna belum login');
+    final groupRef = _db.collection('groups').doc(groupId);
+    final groupSnap = await groupRef.get();
+    if (!groupSnap.exists) throw Exception('Grup tidak ditemukan');
+
+    final data = groupSnap.data()!;
+    final ownerId = data['ownerId'] as String? ?? '';
+    final ownerIds = data['ownerIds'] != null
+        ? List<String>.from(data['ownerIds'])
+        : (ownerId.isNotEmpty ? [ownerId] : <String>[]);
+
+    if (!ownerIds.contains(uid) && ownerId != uid) {
+      throw Exception('Hanya pemilik/admin grup yang dapat mengubah status owner');
+    }
+
+    if (ownerId == targetUid) {
+      throw Exception('Pembuat grup utama tidak dapat diturunkan statusnya');
+    }
+
+    await groupRef.update({
+      'ownerIds': FieldValue.arrayRemove([targetUid]),
+    });
+  }
+
+  /// Mengalihkan pembuat utama grup ke anggota lain
   Future<void> transferGroupOwnership(String groupId, String newOwnerUid) async {
     final uid = _uid;
     if (uid == null) throw Exception('Pengguna belum login');
@@ -422,7 +491,7 @@ class DatabaseService {
     final data = groupSnap.data()!;
     final ownerId = data['ownerId'] as String?;
     if (ownerId != uid) {
-      throw Exception('Hanya pemilik grup yang dapat memindahkan kepemilikan');
+      throw Exception('Hanya pembuat grup yang dapat memindahkan kepemilikan utama');
     }
 
     final members = List<String>.from(data['memberUids'] ?? []);
@@ -432,6 +501,7 @@ class DatabaseService {
 
     await groupRef.update({
       'ownerId': newOwnerUid,
+      'ownerIds': FieldValue.arrayUnion([newOwnerUid]),
     });
   }
 

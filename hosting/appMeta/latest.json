@@ -1,7 +1,7 @@
 {
-  "versionName": "1.0.7",
-  "versionCode": "8",
+  "versionName": "1.0.8",
+  "versionCode": "9",
   "apkUrl": "https://github.com/ridlofw/motorqu/releases/latest/download/app-release.apk",
-  "notes": "Pembaruan v1.0.7: Perbaikan login instan ke beranda tanpa restart/hapus cache, fitur owner mengeluarkan anggota dan mengangkat anggota jadi owner baru, serta sinkronisasi otomatis pengingat oli untuk semua motor pribadi dan grup.",
-  "updatedAt": "2026-10-27T12:00:00Z"
+  "notes": "Pembaruan v1.0.8: Dukungan multiple owner/admin seperti WhatsApp (bisa banyak owner, bisa turunkan owner), dan owner bisa mengeluarkan motor anggota lain dari grup dengan dialog konfirmasi khusus.",
+  "updatedAt": "2026-10-28T04:00:00Z"
 }

@@ -256,13 +256,13 @@ class _GroupScreenState extends State<GroupScreen> {
   }
 
   Future<void> _removeMotorFromGroup(Motorcycle moto) async {
-    final ok = await showDialog<bool>(
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Keluarkan Motor dari Grup?'),
-        content: Text(
-          'Motor "${moto.name}" akan kembali menjadi motor pribadi Anda dan '
-          'tidak dapat diakses oleh anggota grup lain.',
+        content: const Text(
+          'kamu yakin akan menghapus motor ini dari grup, motor yang kamu hapus dari grup ini nanti akan menjadi motor individu dari pemilik yang menambahkannya.',
+          style: TextStyle(height: 1.4),
         ),
         actions: [
           TextButton(
@@ -278,9 +278,9 @@ class _GroupScreenState extends State<GroupScreen> {
       ),
     );
 
-    if (ok != true) return;
+    if (confirmed != true) return;
     try {
-      await _db.removeMotorcycleFromGroup(moto.id, _myUid);
+      await _db.removeMotorcycleFromGroup(moto.id, moto.createdBy);
       _toast('Motor "${moto.name}" telah dikeluarkan ke motor pribadi');
     } catch (e) {
       _toast('Gagal mengeluarkan motor: $e');
@@ -288,17 +288,22 @@ class _GroupScreenState extends State<GroupScreen> {
   }
 
   Future<void> _leaveGroup(FamilyGroup group) async {
-    final isOwner = group.ownerId == _myUid;
+    final isOwner = group.isOwner(_myUid);
+    final isCreator = group.ownerId == _myUid;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(isOwner ? 'Hapus/Tinggalkan Grup' : 'Keluar dari Grup'),
+        title: Text(isCreator
+            ? 'Hapus/Tinggalkan Grup'
+            : (isOwner ? 'Keluar dari Grup (Owner)' : 'Keluar dari Grup')),
         content: Text(
-          isOwner
-              ? 'Anda adalah pemilik grup "${group.name}". Jika Anda keluar, '
-                  'motor Anda yang dibagikan ke grup ini akan ditarik kembali.'
-              : 'Motor milik Anda yang dibagikan ke grup "${group.name}" tidak akan bisa '
-                  'diakses lagi oleh anggota lain.',
+          isCreator
+              ? 'Anda adalah pembuat utama grup "${group.name}". Jika Anda keluar, '
+                  'kepemilikan akan dialihkan atau grup akan ditutup jika tidak ada anggota lain.'
+              : (isOwner
+                  ? 'Anda adalah salah satu owner di grup "${group.name}". Jika keluar, status owner Anda akan dilepas dan motor Anda otomatis ditarik kembali ke motor pribadi.'
+                  : 'Motor milik Anda yang dibagikan ke grup "${group.name}" akan otomatis '
+                      'ditarik kembali menjadi motor pribadi Anda.'),
         ),
         actions: [
           TextButton(
@@ -368,7 +373,7 @@ class _GroupScreenState extends State<GroupScreen> {
     }
   }
 
-  Future<void> _transferOwnership(FamilyGroup group, Map<String, dynamic> member) async {
+  Future<void> _promoteMemberToOwner(FamilyGroup group, Map<String, dynamic> member) async {
     final memberName = member['displayName'] ?? 'Anggota';
     final targetUid = member['uid'] as String;
 
@@ -377,14 +382,14 @@ class _GroupScreenState extends State<GroupScreen> {
       builder: (ctx) => AlertDialog(
         title: const Row(
           children: [
-            Icon(Icons.military_tech_rounded, color: Colors.amber),
+            Icon(Icons.military_tech_rounded, color: Colors.blue),
             SizedBox(width: 8),
-            Text('Pindahkan Owner?'),
+            Text('Jadikan Owner / Admin?'),
           ],
         ),
         content: Text(
-          'Jadikan "$memberName" sebagai Pemilik Grup (Owner) baru untuk "${group.name}"?\n\n'
-          'Anda akan menjadi anggota biasa setelah kepemilikan grup diserahkan.',
+          'Angkat "$memberName" sebagai Owner / Admin grup "${group.name}"?\n\n'
+          'Grup ini bisa memiliki banyak owner seperti grup WhatsApp. "$memberName" akan memiliki hak untuk mengelola motor dan anggota grup.',
           style: const TextStyle(height: 1.4),
         ),
         actions: [
@@ -394,7 +399,7 @@ class _GroupScreenState extends State<GroupScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Ya, Angkat Jadi Owner'),
+            child: const Text('Jadikan Owner'),
           ),
         ],
       ),
@@ -403,11 +408,54 @@ class _GroupScreenState extends State<GroupScreen> {
     if (confirmed != true) return;
 
     try {
-      await _db.transferGroupOwnership(group.id, targetUid);
-      _toast('"$memberName" sekarang menjadi Pemilik Grup');
+      await _db.promoteMemberToOwner(group.id, targetUid);
+      _toast('"$memberName" sekarang menjadi Owner grup');
       setState(() {});
     } catch (e) {
-      _toast('Gagal memindahkan owner: $e');
+      _toast('Gagal mengangkat owner: $e');
+    }
+  }
+
+  Future<void> _demoteOwner(FamilyGroup group, Map<String, dynamic> member) async {
+    final memberName = member['displayName'] ?? 'Anggota';
+    final targetUid = member['uid'] as String;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.remove_moderator_rounded, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('Turunkan Status Owner?'),
+          ],
+        ),
+        content: Text(
+          'Turunkan "$memberName" menjadi anggota biasa di grup "${group.name}"?',
+          style: const TextStyle(height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.orange),
+            child: const Text('Turunkan'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await _db.demoteOwner(group.id, targetUid);
+      _toast('Status owner "$memberName" telah dicabut');
+      setState(() {});
+    } catch (e) {
+      _toast('Gagal mencabut status owner: $e');
     }
   }
 
@@ -520,7 +568,7 @@ class _GroupScreenState extends State<GroupScreen> {
   }
 
   Widget _groupDetailView(List<FamilyGroup> allGroups, FamilyGroup activeGroup) {
-    final isOwner = activeGroup.ownerId == _myUid;
+    final isOwner = activeGroup.isOwner(_myUid);
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -612,7 +660,7 @@ class _GroupScreenState extends State<GroupScreen> {
                             ],
                           ),
                           Text(
-                            isOwner ? 'Anda adalah Pemilik Grup' : 'Anggota Grup',
+                            isOwner ? 'Anda adalah Owner/Admin Grup' : 'Anggota Grup',
                             style: TextStyle(
                               fontSize: 13,
                               color: isOwner ? Colors.blue : Colors.grey[700],
@@ -697,6 +745,7 @@ class _GroupScreenState extends State<GroupScreen> {
             return Column(
               children: groupMotos.map((m) {
                 final isMyMotor = m.createdBy == _myUid;
+                final canRemoveMotor = isMyMotor || isOwner;
                 return Card(
                   margin: const EdgeInsets.only(bottom: 8),
                   child: ListTile(
@@ -712,10 +761,12 @@ class _GroupScreenState extends State<GroupScreen> {
                       'Oli terakhir: ${m.lastOdometer} KM · Target: ${m.nextDueKm} KM',
                     ),
                     isThreeLine: true,
-                    trailing: isMyMotor
+                    trailing: canRemoveMotor
                         ? IconButton(
                             icon: const Icon(Icons.remove_circle_outline, color: Colors.orange),
-                            tooltip: 'Keluarkan dari Grup',
+                            tooltip: isMyMotor
+                                ? 'Keluarkan Motor Saya dari Grup'
+                                : 'Keluarkan Motor Ini dari Grup',
                             onPressed: () => _removeMotorFromGroup(m),
                           )
                         : const Chip(
@@ -761,7 +812,8 @@ class _GroupScreenState extends State<GroupScreen> {
                 itemBuilder: (ctx, index) {
                   final m = members[index];
                   final isMe = m['uid'] == _myUid;
-                  final isGroupOwner = m['uid'] == activeGroup.ownerId;
+                  final isMemberOwner = activeGroup.isOwner(m['uid']);
+                  final isGroupCreator = m['uid'] == activeGroup.ownerId;
                   return ListTile(
                     leading: CircleAvatar(
                       backgroundImage: m['photoUrl'] != null
@@ -776,38 +828,78 @@ class _GroupScreenState extends State<GroupScreen> {
                       ),
                     ),
                     subtitle: Text(m['email'] ?? ''),
-                    trailing: isGroupOwner
-                        ? const Chip(
-                            label: Text('Owner', style: TextStyle(fontSize: 11)),
-                          )
-                        : (isMe
-                            ? const Chip(
+                    trailing: isMe
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (isMemberOwner)
+                                Chip(
+                                  label: Text(
+                                    isGroupCreator ? 'Owner Utama' : 'Owner',
+                                    style: const TextStyle(fontSize: 11),
+                                  ),
+                                  backgroundColor: isGroupCreator
+                                      ? Colors.amber.shade100
+                                      : Colors.blue.shade50,
+                                ),
+                              const SizedBox(width: 4),
+                              const Chip(
                                 label: Text('Anda', style: TextStyle(fontSize: 11)),
-                              )
-                            : (isOwner
-                                ? PopupMenuButton<String>(
-                                    icon: const Icon(Icons.more_vert, size: 20),
-                                    tooltip: 'Kelola Anggota',
-                                    onSelected: (val) {
-                                      if (val == 'transfer') {
-                                        _transferOwnership(activeGroup, m);
-                                      }
-                                      if (val == 'kick') {
-                                        _kickMember(activeGroup, m);
-                                      }
-                                    },
-                                    itemBuilder: (ctx) => [
+                              ),
+                            ],
+                          )
+                        : Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (isMemberOwner)
+                                Chip(
+                                  label: Text(
+                                    isGroupCreator ? 'Owner Utama' : 'Owner',
+                                    style: const TextStyle(fontSize: 11),
+                                  ),
+                                  backgroundColor: isGroupCreator
+                                      ? Colors.amber.shade100
+                                      : Colors.blue.shade50,
+                                ),
+                              if (isOwner)
+                                PopupMenuButton<String>(
+                                  icon: const Icon(Icons.more_vert, size: 20),
+                                  tooltip: 'Kelola Anggota',
+                                  onSelected: (val) {
+                                    if (val == 'promote') {
+                                      _promoteMemberToOwner(activeGroup, m);
+                                    } else if (val == 'demote') {
+                                      _demoteOwner(activeGroup, m);
+                                    } else if (val == 'kick') {
+                                      _kickMember(activeGroup, m);
+                                    }
+                                  },
+                                  itemBuilder: (ctx) => [
+                                    if (!isMemberOwner)
                                       const PopupMenuItem(
-                                        value: 'transfer',
+                                        value: 'promote',
                                         child: Row(
                                           children: [
                                             Icon(Icons.military_tech_rounded,
                                                 color: Colors.blue, size: 20),
                                             SizedBox(width: 8),
-                                            Text('Angkat Jadi Owner'),
+                                            Text('Jadikan Owner / Admin'),
+                                          ],
+                                        ),
+                                      )
+                                    else if (!isGroupCreator)
+                                      const PopupMenuItem(
+                                        value: 'demote',
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.remove_moderator_rounded,
+                                                color: Colors.orange, size: 20),
+                                            SizedBox(width: 8),
+                                            Text('Turunkan dari Owner'),
                                           ],
                                         ),
                                       ),
+                                    if (!isGroupCreator)
                                       const PopupMenuItem(
                                         value: 'kick',
                                         child: Row(
@@ -820,9 +912,10 @@ class _GroupScreenState extends State<GroupScreen> {
                                           ],
                                         ),
                                       ),
-                                    ],
-                                  )
-                                : null)),
+                                  ],
+                                ),
+                            ],
+                          ),
                   );
                 },
               ),
