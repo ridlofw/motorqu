@@ -18,6 +18,8 @@
 | **Storage / Foto** | Butuh aktivasi manual di console | **Ditunda ke v2** | Menghilangkan 1 blocker manual |
 | **Export CSV** | Direncanakan di v1 | **Dihapus dari v2** | Fokus MVP |
 | **Pengingat (Reminder)** | Belum spesifik | **Fitur baru**: interval KM per motor (di Detail Motor), notifikasi lokal bulanan, toggle global di Profil | Sesuai request user & best practice |
+| **Manajemen Grup** | 1 grup statis | **Multi-Grup**: Dukungan banyak grup, owner bisa kick anggota & angkat anggota jadi owner baru, ubah nama grup | Sesuai kebutuhan keluarga besar |
+| **Sinkronisasi Notifikasi** | Manual per motor | **Sinkronisasi Otomatis**: Semua motor pribadi & grup otomatis terjadwal pengingat saat app dibuka | Pengingat aktif untuk seluruh motor |
 
 ---
 
