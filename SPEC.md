@@ -1,7 +1,7 @@
-# SPEC v2 â€” MotorQu (Aplikasi Pencatatan Oli Motor)
+# SPEC v2 — MotorQu (Aplikasi Pencatatan Oli Motor)
 
 > Status: Revisi v2 (disederhanakan sesuai arahan user)  
-> Project Firebase: `motorqu-e81dd` Â· Package Android: `com.motorqu.app` Â· Region: asia-southeast2 (Jakarta)  
+> Project Firebase: `motorqu-e81dd` · Package Android: `com.motorqu.app` · Region: asia-southeast2 (Jakarta)  
 > Dokumen ini adalah acuan tunggal implementasi aplikasi.
 
 ---
@@ -28,7 +28,7 @@
 ### A. Format & Waktu Pemicu Notifikasi
 - **Waktu:** Berjalan lokal di HP secara otomatis setiap **30 hari sekali** terhitung sejak tanggal penggantian oli terakhir.
 - **Teks Notifikasi:**
-  > ðŸ”” **Pengingat Servis MotorQu**  
+  > 🔔 **Pengingat Servis MotorQu**  
   > *Jika KM motor [Nama Motor] sudah lebih dari [Target KM]KM, jangan lupa ganti oli yaa*  
   > *(Contoh nyata: "Jika KM motor Beat sudah lebih dari 26.500KM, jangan lupa ganti oli yaa")*
 - **Aksi saat di-tap:** Notifikasi langsung membuka form **"Catat Ganti Oli"** dengan motor tersebut sudah otomatis terpilih.
@@ -39,17 +39,17 @@
 
 **Kesimpulan Best Practice: Pemisahan Konfigurasi Spesifik vs Global.**
 
-1. **Setting Interval KM (Spesifik per Motor) â†’ Di [Detail Motor] / Form [Tambah Motor]:**
+1. **Setting Interval KM (Spesifik per Motor) → Di [Detail Motor] / Form [Tambah Motor]:**
    - **Kenapa di Detail Motor?** Setiap motor memiliki karakter dan rekomendasi pabrikan yang berbeda.
-     - Motor matic (BeAT, Vario, Mio): biasanya 1.500 â€“ 2.000 km.
-     - Motor bebek / sport (Supra, Vixion, CBR): biasanya 2.500 â€“ 3.000 km.
+     - Motor matic (BeAT, Vario, Mio): biasanya 1.500 – 2.000 km.
+     - Motor bebek / sport (Supra, Vixion, CBR): biasanya 2.500 – 3.000 km.
      - Motor tua vs motor baru bisa memiliki interval servis yang berbeda.
    - Oleh karena itu, interval KM **wajib melekat pada data motor masing-masing**, bukan disamaratakan.
    - Lokasi:
      - Diisi pertama kali saat **Tambah Motor** (default: `2000 km`).
-     - Bisa diubah sewaktu-waktu di layar **Detail Motor â†’ Edit Motor**.
+     - Bisa diubah sewaktu-waktu di layar **Detail Motor → Edit Motor**.
 
-2. **Master Switch (On / Off Global) â†’ Di [Profil]:**
+2. **Master Switch (On / Off Global) → Di [Profil]:**
    - Di tab Profil ditaruh switch: `Izinkan Notifikasi Pengingat (Aktif/Nonaktif)`.
    - Fungsinya jika user sedang tidak ingin diganggu notifikasi tanpa harus mengubah setelan interval motor satu per satu.
 
@@ -58,16 +58,16 @@
 ## 3. STRUKTUR NAVIGASI (HANYA 3 ITEM)
 
 ```
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚                  LAYAR UTAMA                 â”‚
-â”‚                                              â”‚
-â”‚                                              â”‚
-â”‚                                              â”‚
-â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
-â”‚     ðŸï¸ Motor      â”‚     âž•       â”‚ ðŸ‘¤ Profil â”‚
-â”‚    (Home/Semua)   â”‚ (Quick Actionâ”‚ (Akun &   â”‚
-â”‚                   â”‚ Bottom Sheet)â”‚  Grup)    â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+┌──────────────────────────────────────────────┐
+│                  LAYAR UTAMA                 │
+│                                              │
+│                                              │
+│                                              │
+├───────────────────┬──────────────┬───────────┤
+│     🏍️ Motor      │     ➕       │ 👤 Profil │
+│    (Home/Semua)   │ (Quick Action│ (Akun &   │
+│                   │ Bottom Sheet)│  Grup)    │
+└───────────────────┴──────────────┴───────────┘
 ```
 
 ---
@@ -86,7 +86,7 @@
   - Odometer ganti oli terakhir (misal: "24.500 km") & tanggal
   - Status servis: "Target ganti: 26.500 km (+2.000 km)"
 - **Aksi:**
-  - Tap salah satu kartu motor â†’ Membuka **Layar Detail Motor**.
+  - Tap salah satu kartu motor → Membuka **Layar Detail Motor**.
 
 ---
 
@@ -94,63 +94,63 @@
 Struktur vertikal dari atas ke bawah:
 
 ```
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚ â† [Kembali]           Detail Motor    [Edit] â”‚
-â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
-â”‚ Beat Kakak                                   â”‚
-â”‚ [ Motor Grup Keluarga ]                      â”‚
-â”‚ B 1234 XYZ Â· Honda BeAT                      â”‚
-â”‚                                              â”‚
-â”‚ â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â” â”‚
-â”‚ â”‚          [ âž• Update Ganti Oli ]          â”‚ â”‚ â† Tombol cepat
-â”‚ â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜ â”‚
-â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
-â”‚ ðŸ“œ RIWAYAT OLI                               â”‚
-â”‚                                              â”‚
-â”‚   â—  18 Okt 2026 â€” 24.500 km                 â”‚
-â”‚   â”‚  (Jarak pemakaian: 2.020 km)             â”‚ â† Garis penghubung
-â”‚   â—  15 Agu 2026 â€” 22.480 km                 â”‚   vertikal
-â”‚   â”‚  (Jarak pemakaian: 1.980 km)             â”‚
-â”‚   â—  10 Jun 2026 â€” 20.500 km                 â”‚
-â”‚      (Catatan awal)                          â”‚
-â”‚                                              â”‚
-â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
-â”‚ â„¹ï¸ INFORMASI MOTOR                           â”‚
-â”‚ â€¢ Merk / Tipe  : Honda BeAT                  â”‚
-â”‚ â€¢ Plat Nomor   : B 1234 XYZ                  â”‚
-â”‚ â€¢ Tahun        : 2021 (opsional)             â”‚
-â”‚ â€¢ Warna        : Hitam (opsional)            â”‚
-â”‚ â€¢ Pengingat    : Per 2.000 km                â”‚
-â”‚ â€¢ Dibuat oleh  : Kakak (ridlo... / nama)     â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+┌──────────────────────────────────────────────┐
+│ ← [Kembali]           Detail Motor    [Edit] │
+├──────────────────────────────────────────────┤
+│ Beat Kakak                                   │
+│ [ Motor Grup Keluarga ]                      │
+│ B 1234 XYZ · Honda BeAT                      │
+│                                              │
+│ ┌──────────────────────────────────────────┐ │
+│ │          [ ➕ Update Ganti Oli ]          │ │ ← Tombol cepat
+│ └──────────────────────────────────────────┘ │
+├──────────────────────────────────────────────┤
+│ 📜 RIWAYAT OLI                               │
+│                                              │
+│   ●   18 Okt 2026 — 24.500 km                 │
+│   │  (Jarak pemakaian: 2.020 km)             │ ← Garis penghubung
+│   ●   15 Agu 2026 — 22.480 km                 │   vertikal
+│   │  (Jarak pemakaian: 1.980 km)             │
+│   ●   10 Jun 2026 — 20.500 km                 │
+│      (Catatan awal)                          │
+│                                              │
+├──────────────────────────────────────────────┤
+│ ℹ️ INFORMASI MOTOR                           │
+│ • Merk / Tipe  : Honda BeAT                  │
+│ • Plat Nomor   : B 1234 XYZ                  │
+│ • Tahun        : 2021 (opsional)             │
+│ • Warna        : Hitam (opsional)            │
+│ • Pengingat    : Per 2.000 km                │
+│ • Dibuat oleh  : Kakak (ridlo... / nama)     │
+└──────────────────────────────────────────────┘
 ```
 
 - **Tombol [Edit]** di pojok kanan atas: untuk mengedit plat, merk, nama, tahun, atau setelan pengingat KM.
-- **Tombol [âž• Update Ganti Oli]**: langsung membuka popup catat tanggal & KM untuk motor ini.
+- **Tombol [➕ Update Ganti Oli]**: langsung membuka popup catat tanggal & KM untuk motor ini.
 - **Timeline Riwayat**: garis penghubung otomatis menghitung selisih KM antar pencatatan:
   $$\Delta KM = KM_{sekarang} - KM_{sebelumnya}$$
 
 ---
 
-### C. Navigasi Tengah [ âž• ] (Action Modal)
+### C. Navigasi Tengah [ ➕ ] (Action Modal)
 Saat ikon `+` di navigasi bawah ditekan, muncul **Bottom Sheet** dengan 4 pilihan aksi:
 
 ```
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚  PILIH AKSI                                  â”‚
-â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
-â”‚  ðŸ›¢ï¸  Catat Ganti Oli                         â”‚
-â”‚      Update KM dan tanggal oli motor         â”‚
-â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
-â”‚  ðŸï¸  Tambah Motor Baru                       â”‚
-â”‚      Daftarkan motor sendiri / motor grup    â”‚
-â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
-â”‚  ðŸ‘¥  Buat Grup Keluarga                      â”‚
-â”‚      Buat grup baru & dapatkan kode undangan â”‚
-â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
-â”‚  ðŸ”‘  Masuk Grup                              â”‚
-â”‚      Gabung ke grup keluarga lewat kode unik â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+┌──────────────────────────────────────────────┐
+│  PILIH AKSI                                  │
+├──────────────────────────────────────────────┤
+│  🛢️   Catat Ganti Oli                         │
+│      Update KM dan tanggal oli motor         │
+├──────────────────────────────────────────────┤
+│  🏍️   Tambah Motor Baru                       │
+│      Daftarkan motor sendiri / motor grup    │
+├──────────────────────────────────────────────┤
+│  👥  Buat Grup Keluarga                      │
+│      Buat grup baru & dapatkan kode undangan │
+├──────────────────────────────────────────────┤
+│  🔑  Masuk Grup                              │
+│      Gabung ke grup keluarga lewat kode unik │
+└──────────────────────────────────────────────┘
 ```
 
 1. **Jika pilih "Catat Ganti Oli":**
@@ -164,7 +164,7 @@ Saat ikon `+` di navigasi bawah ditekan, muncul **Bottom Sheet** dengan 4 piliha
    - Nama motor (wajib, misal: "Vario 125")
    - Merk & Tipe (wajib, misal: "Honda Vario")
    - Plat nomor (opsional)
-   - Tahun (opsional â€” sesuai permintaan user)
+   - Tahun (opsional — sesuai permintaan user)
    - Warna (opsional)
    - Simpan ke: `[ Motor Saya Pribadi ]` atau `[ Motor Grup Keluarga ]`
    - Setting Pengingat Interval: default 2.000 km (bisa diatur sesuai motor)
@@ -190,7 +190,7 @@ Tab Profil berfungsi sebagai pusat akun pengguna dan **Hub Utama Pengelolaan Gru
 #### 1. Tampilan Layar Profil
 - **Info Akun:** Foto profil Google, Nama Lengkap, Email.
 - **Kartu Grup Keluarga:**
-  - Jika **sudah punya grup**: Menampilkan nama grup (misal: "Keluarga Ridlo"), jumlah anggota, dan tombol `[ Kelola Grup â†’ ]`.
+  - Jika **sudah punya grup**: Menampilkan nama grup (misal: "Keluarga Ridlo"), jumlah anggota, dan tombol `[ Kelola Grup → ]`.
   - Jika **belum punya grup**: Menampilkan kartu ajakan dengan tombol `[ Buat Grup Baru ]` atau `[ Masuk dengan Kode ]`.
 - **Pengaturan Aplikasi:**
   - Switch: `Izinkan Notifikasi Pengingat (Aktif/Nonaktif)`
@@ -202,32 +202,32 @@ Tab Profil berfungsi sebagai pusat akun pengguna dan **Hub Utama Pengelolaan Gru
 #### 2. Layar Khusus: [Kelola Grup Keluarga] (Terbuka saat kartu grup di Profil di-tap)
 
 ```
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚ â† [Kembali]           Kelola Grup    [Simpan]â”‚
-â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
-â”‚ ðŸ·ï¸  NAMA GRUP                                â”‚
-â”‚ [ Keluarga Ridlo & Kakak              ] âœï¸   â”‚ â† Bisa diedit owner
-â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
-â”‚ ðŸ”‘  KODE UNDANGAN ANGGOTA                    â”‚
-â”‚ â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â” â”‚
-â”‚ â”‚                  MTR789                  â”‚ â”‚ â† Kode 6 digit
-â”‚ â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜ â”‚
-â”‚ [ ðŸ“‹ Salin Kode ]      [ ðŸ“² Bagikan ke WA ]  â”‚
-â”‚ (Kode berlaku 7 hari, siap dikirim ke kakak) â”‚
-â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
-â”‚ ðŸ‘¥  ANGGOTA GRUP (2 Orang)                   â”‚
-â”‚ â€¢ Ridlo (ridlo...@gmail.com)       ðŸ‘‘ Owner  â”‚
-â”‚ â€¢ Kakak (kakak...@gmail.com)       Anggota   â”‚
-â”‚                                              â”‚
-â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
-â”‚ ðŸï¸  MOTOR DI GRUP INI (2 Motor)              â”‚
-â”‚ â€¢ Beat Kakak (B 1234 XYZ)                    â”‚
-â”‚ â€¢ Vario Ridlo (B 5678 ABC)                   â”‚
-â”‚ *(Untuk tambah/pindah motor, lewat Edit Motor)*â”‚
-â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
-â”‚ [ ðŸšª Keluar dari Grup ]                      â”‚ â† Jika Member
-â”‚ [ ðŸ—‘ï¸ Bubarkan Grup ]                          â”‚ â† Jika Owner
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+┌──────────────────────────────────────────────┐
+│ ← [Kembali]           Kelola Grup    [Simpan]│
+├──────────────────────────────────────────────┤
+│ 🏷️  NAMA GRUP                                │
+│ [ Keluarga Ridlo & Kakak              ] ✏️    │ ← Bisa diedit owner
+├──────────────────────────────────────────────┤
+│ 🔑  KODE UNDANGAN ANGGOTA                    │
+│ ┌──────────────────────────────────────────┐ │
+│ │                  MTR789                  │ │ ← Kode 6 digit
+│ └──────────────────────────────────────────┘ │
+│ [ 📋 Salin Kode ]      [ 📱 Bagikan ke WA ]  │
+│ (Kode berlaku 7 hari, siap dikirim ke kakak) │
+├──────────────────────────────────────────────┤
+│ 👥  ANGGOTA GRUP (2 Orang)                   │
+│ • Ridlo (ridlo...@gmail.com)       👑 Owner  │
+│ • Kakak (kakak...@gmail.com)       Anggota   │
+│                                              │
+├──────────────────────────────────────────────┤
+│ 🏍️  MOTOR DI GRUP INI (2 Motor)              │
+│ • Beat Kakak (B 1234 XYZ)                    │
+│ • Vario Ridlo (B 5678 ABC)                   │
+│ *(Untuk tambah/pindah motor, lewat Edit Motor)*│
+├──────────────────────────────────────────────┤
+│ [ 🚪 Keluar dari Grup ]                      │ ← Jika Member
+│ [ 🗑️ Bubarkan Grup ]                          │ ← Jika Owner
+└──────────────────────────────────────────────┘
 ```
 
 ---
@@ -237,11 +237,11 @@ Tab Profil berfungsi sebagai pusat akun pengguna dan **Hub Utama Pengelolaan Gru
 Memasukkan atau mengeluarkan motor dari grup **TIDAK PERLU** menu yang rumit. Cukup dilakukan lewat **Form Motor** (saat Tambah Motor atau saat Edit Motor di halaman Detail Motor):
 
 - Di form motor ada pilihan switch/radio:
-  - `( ) Motor Pribadi` â†’ Hanya muncul di akun pemiliknya saja.
-  - `(â—) Bagikan ke Grup Keluarga` â†’ Otomatis seketika muncul di layar HP semua anggota grup (bisa dilihat dan dicatat olinya bersama-sama).
+  - `( ) Motor Pribadi` → Hanya muncul di akun pemiliknya saja.
+  - `(●) Bagikan ke Grup Keluarga` → Otomatis seketika muncul di layar HP semua anggota grup (bisa dilihat dan dicatat olinya bersama-sama).
 - **Contoh Kasus Nyata:**
   - Kamu baru beli motor Vario, saat kamu tambah motor, kamu pilih `Bagikan ke Grup Keluarga`. Seketika motor itu juga muncul di HP kakakmu.
-  - Jika suatu saat motor itu dijual atau tidak ingin dibagikan lagi, kamu tinggal buka motor itu â†’ tekan **Edit** â†’ ubah kembali ke `Motor Pribadi`.
+  - Jika suatu saat motor itu dijual atau tidak ingin dibagikan lagi, kamu tinggal buka motor itu → tekan **Edit** → ubah kembali ke `Motor Pribadi`.
 
 ---
 

@@ -335,48 +335,88 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildBottomNavigation() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 16,
-            offset: const Offset(0, -4),
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    const double barHeight = 68.0;
+    const double topOffset = 24.0;
+    final double totalHeight = barHeight + topOffset + bottomPadding;
+
+    return SizedBox(
+      height: totalHeight,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // Curved Cutout Background & Top Stroke
+          Positioned.fill(
+            child: CustomPaint(
+              painter: CurvedNotchPainter(
+                backgroundColor: Theme.of(context).colorScheme.surface,
+                strokeColor: const Color(0xFFF1F5F9),
+                topOffset: topOffset,
+              ),
+            ),
+          ),
+
+          // Nav Items Grid (Docked over the curved background)
+          Positioned(
+            left: 0,
+            right: 0,
+            top: topOffset,
+            height: barHeight,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                children: [
+                  // Left Group: Motor
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.center,
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 24),
+                        child: _buildNavItem(
+                          icon: Icons.two_wheeler_outlined,
+                          activeIcon: Icons.two_wheeler_rounded,
+                          label: 'Motor',
+                          isSelected: _index == 0,
+                          onTap: () => setState(() => _index = 0),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Center Spacer for FAB (Matches cutout notch width)
+                  const SizedBox(width: 56),
+
+                  // Right Group: Profil
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.center,
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 24),
+                        child: _buildNavItem(
+                          icon: Icons.person_outline_rounded,
+                          activeIcon: Icons.person_rounded,
+                          label: 'Profil',
+                          isSelected: _index == 1,
+                          onTap: () => setState(() => _index = 1),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Elevated Central Circular FAB (+) in Notch
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: _buildCenterActionButton(),
+            ),
           ),
         ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: Container(
-          height: 64,
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Tab 0: Motor
-              _buildNavItem(
-                icon: Icons.two_wheeler_outlined,
-                activeIcon: Icons.two_wheeler_rounded,
-                label: 'Motor',
-                isSelected: _index == 0,
-                onTap: () => setState(() => _index = 0),
-              ),
-
-              // Tombol Tambah (+) Mengapung di Tengah
-              _buildCenterActionButton(),
-
-              // Tab 1: Profil
-              _buildNavItem(
-                icon: Icons.person_outline_rounded,
-                activeIcon: Icons.person_rounded,
-                label: 'Profil',
-                isSelected: _index == 1,
-                onTap: () => setState(() => _index = 1),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -388,27 +428,34 @@ class _HomeScreenState extends State<HomeScreen> {
     required bool isSelected,
     required VoidCallback onTap,
   }) {
-    final primary = Theme.of(context).colorScheme.primary;
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    const inactiveIconColor = Color(0xFF94A3B8); // text-slate-400
+    const inactiveTextColor = Color(0xFF64748B); // text-slate-500
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
+      splashColor: primaryColor.withValues(alpha: 0.1),
+      highlightColor: Colors.transparent,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               isSelected ? activeIcon : icon,
-              color: isSelected ? primary : Colors.grey.shade500,
-              size: 26,
+              color: isSelected ? primaryColor : inactiveIconColor,
+              size: 24,
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(
               label,
               style: TextStyle(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected ? primary : Colors.grey.shade600,
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? primaryColor : inactiveTextColor,
+                letterSpacing: -0.2,
               ),
             ),
           ],
@@ -421,30 +468,34 @@ class _HomeScreenState extends State<HomeScreen> {
     return GestureDetector(
       onTap: _openActionSheet,
       child: Container(
-        width: 52,
-        height: 52,
+        width: 56,
+        height: 56,
         decoration: BoxDecoration(
-          gradient: LinearGradient(
+          gradient: const LinearGradient(
+            begin: Alignment.bottomLeft,
+            end: Alignment.topRight,
             colors: [
-              Theme.of(context).colorScheme.primary,
-              Colors.indigo.shade600,
+              Color(0xFF1976D2),
+              Color(0xFF1565C0),
             ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
           ),
           shape: BoxShape.circle,
+          border: Border.all(
+            color: Colors.white,
+            width: 3.5,
+          ),
           boxShadow: [
             BoxShadow(
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+              color: const Color(0xFF1976D2).withValues(alpha: 0.35),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
             ),
           ],
         ),
         child: const Icon(
           Icons.add_rounded,
           color: Colors.white,
-          size: 32,
+          size: 28,
         ),
       ),
     );
@@ -961,5 +1012,79 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+  }
+}
+
+/// CustomPainter to render the curved notch cutout with crisp top stroke
+/// exactly as designed in Stitch (viewBox: 0 0 390 68 with central cutout).
+class CurvedNotchPainter extends CustomPainter {
+  final Color backgroundColor;
+  final Color strokeColor;
+  final double topOffset;
+
+  CurvedNotchPainter({
+    required this.backgroundColor,
+    required this.strokeColor,
+    this.topOffset = 24.0,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final cx = w / 2;
+    final top = topOffset;
+
+    // Build the cutout notch path:
+    // M0 0 H148 C158 0 162 5 166 14 C172 27 181 33 195 33 C209 33 218 27 224 14 C228 5 232 0 242 0 H390 V68 H0 V0 Z
+    final path = Path();
+    path.moveTo(0, top);
+    path.lineTo(cx - 47, top);
+    path.cubicTo(cx - 37, top, cx - 33, top + 5, cx - 29, top + 14);
+    path.cubicTo(cx - 23, top + 27, cx - 14, top + 33, cx, top + 33);
+    path.cubicTo(cx + 14, top + 33, cx + 23, top + 27, cx + 29, top + 14);
+    path.cubicTo(cx + 33, top + 5, cx + 37, top, cx + 47, top);
+    path.lineTo(w, top);
+    path.lineTo(w, h);
+    path.lineTo(0, h);
+    path.close();
+
+    // 1. Soft upwards shadow: drop-shadow-[0_-5px_12px_rgba(0,0,0,0.06)]
+    final shadowPaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.06)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
+    canvas.save();
+    canvas.translate(0, -4);
+    canvas.drawPath(path, shadowPaint);
+    canvas.restore();
+
+    // 2. Fill background
+    final fillPaint = Paint()
+      ..color = backgroundColor
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(path, fillPaint);
+
+    // 3. Top stroke with crisp finish: stroke="#f1f5f9" stroke-width="1.2"
+    final strokePath = Path();
+    strokePath.moveTo(0, top);
+    strokePath.lineTo(cx - 47, top);
+    strokePath.cubicTo(cx - 37, top, cx - 33, top + 5, cx - 29, top + 14);
+    strokePath.cubicTo(cx - 23, top + 27, cx - 14, top + 33, cx, top + 33);
+    strokePath.cubicTo(cx + 14, top + 33, cx + 23, top + 27, cx + 29, top + 14);
+    strokePath.cubicTo(cx + 33, top + 5, cx + 37, top, cx + 47, top);
+    strokePath.lineTo(w, top);
+
+    final strokePaint = Paint()
+      ..color = strokeColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    canvas.drawPath(strokePath, strokePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CurvedNotchPainter oldDelegate) {
+    return oldDelegate.backgroundColor != backgroundColor ||
+        oldDelegate.strokeColor != strokeColor ||
+        oldDelegate.topOffset != topOffset;
   }
 }
